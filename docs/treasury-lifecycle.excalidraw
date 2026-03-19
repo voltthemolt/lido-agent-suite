@@ -1,0 +1,47 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "hermes-agent",
+  "elements": [
+    {"type": "text", "id": "title", "x": 100, "y": 20, "width": 400, "height": 35, "text": "Agent Treasury Lifecycle", "fontSize": 28, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center"},
+
+    {"type": "rectangle", "id": "step1", "x": 50, "y": 80, "width": 180, "height": 80, "roundness": {"type": 3}, "backgroundColor": "#a5d8ff", "fillStyle": "solid", "boundElements": [{"id": "t_step1", "type": "text"}, {"id": "t_step1_sub", "type": "text"}]},
+    {"type": "text", "id": "t_step1", "x": 55, "y": 95, "width": 170, "height": 25, "text": "1. DEPOSIT", "fontSize": 18, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "verticalAlign": "middle", "containerId": "step1", "originalText": "1. DEPOSIT", "autoResize": true},
+    {"type": "text", "id": "t_step1_sub", "x": 55, "y": 122, "width": 170, "height": 20, "text": "Agent deposits stETH", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "textAlign": "center", "verticalAlign": "middle", "containerId": "step1", "originalText": "Agent deposits stETH", "autoResize": true},
+
+    {"type": "rectangle", "id": "step2", "x": 280, "y": 80, "width": 180, "height": 80, "roundness": {"type": 3}, "backgroundColor": "#d0bfff", "fillStyle": "solid", "boundElements": [{"id": "t_step2", "type": "text"}, {"id": "t_step2_sub", "type": "text"}]},
+    {"type": "text", "id": "t_step2", "x": 285, "y": 95, "width": 170, "height": 25, "text": "2. LOCK", "fontSize": 18, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "verticalAlign": "middle", "containerId": "step2", "originalText": "2. LOCK", "autoResize": true},
+    {"type": "text", "id": "t_step2_sub", "x": 285, "y": 122, "width": 170, "height": 20, "text": "Principal locked forever", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "textAlign": "center", "verticalAlign": "middle", "containerId": "step2", "originalText": "Principal locked forever", "autoResize": true},
+
+    {"type": "rectangle", "id": "step3", "x": 510, "y": 80, "width": 180, "height": 80, "roundness": {"type": 3}, "backgroundColor": "#c3fae8", "fillStyle": "solid", "boundElements": [{"id": "t_step3", "type": "text"}, {"id": "t_step3_sub", "type": "text"}]},
+    {"type": "text", "id": "t_step3", "x": 515, "y": 95, "width": 170, "height": 25, "text": "3. ACCRUE", "fontSize": 18, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "verticalAlign": "middle", "containerId": "step3", "originalText": "3. ACCRUE", "autoResize": true},
+    {"type": "text", "id": "t_step3_sub", "x": 515, "y": 122, "width": 170, "height": 20, "text": "Yield accumulates", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "textAlign": "center", "verticalAlign": "middle", "containerId": "step3", "originalText": "Yield accumulates", "autoResize": true},
+
+    {"type": "arrow", "id": "a1", "x": 230, "y": 120, "width": 50, "height": 0, "points": [[0,0],[50,0]], "endArrowhead": "arrow", "strokeColor": "#1971c2", "startBinding": {"elementId": "step1", "fixedPoint": [1, 0.5]}, "endBinding": {"elementId": "step2", "fixedPoint": [0, 0.5]}},
+    {"type": "arrow", "id": "a2", "x": 460, "y": 120, "width": 50, "height": 0, "points": [[0,0],[50,0]], "endArrowhead": "arrow", "strokeColor": "#1971c2", "startBinding": {"elementId": "step2", "fixedPoint": [1, 0.5]}, "endBinding": {"elementId": "step3", "fixedPoint": [0, 0.5]}},
+
+    {"type": "rectangle", "id": "step4", "x": 280, "y": 220, "width": 180, "height": 80, "roundness": {"type": 3}, "backgroundColor": "#b2f2bb", "fillStyle": "solid", "boundElements": [{"id": "t_step4", "type": "text"}, {"id": "t_step4_sub", "type": "text"}]},
+    {"type": "text", "id": "t_step4", "x": 285, "y": 235, "width": 170, "height": 25, "text": "4. SPEND", "fontSize": 18, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "verticalAlign": "middle", "containerId": "step4", "originalText": "4. SPEND", "autoResize": true},
+    {"type": "text", "id": "t_step4_sub", "x": 285, "y": 262, "width": 170, "height": 20, "text": "Spend yield on services", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "textAlign": "center", "verticalAlign": "middle", "containerId": "step4", "originalText": "Spend yield on services", "autoResize": true},
+
+    {"type": "arrow", "id": "a3", "x": 600, "y": 160, "width": 0, "height": 60, "points": [[0,0],[0,60]], "endArrowhead": "arrow", "strokeColor": "#1971c2", "startBinding": {"elementId": "step3", "fixedPoint": [0.5, 1]}, "endBinding": {"elementId": "step4", "fixedPoint": [1, 0]}, "boundElements": [{"id": "t_a3", "type": "text"}]},
+    {"type": "text", "id": "t_a3", "x": 605, "y": 180, "width": 40, "height": 20, "text": "yield", "fontSize": 14, "fontFamily": 1, "strokeColor": "#1971c2", "textAlign": "center", "verticalAlign": "middle", "containerId": "a3", "originalText": "yield", "autoResize": true},
+
+    {"type": "rectangle", "id": "step5", "x": 50, "y": 220, "width": 180, "height": 80, "roundness": {"type": 3}, "backgroundColor": "#ffd8a8", "fillStyle": "solid", "boundElements": [{"id": "t_step5", "type": "text"}, {"id": "t_step5_sub", "type": "text"}]},
+    {"type": "text", "id": "t_step5", "x": 55, "y": 235, "width": 170, "height": 25, "text": "5. SWAP", "fontSize": 18, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "verticalAlign": "middle", "containerId": "step5", "originalText": "5. SWAP", "autoResize": true},
+    {"type": "text", "id": "t_step5_sub", "x": 55, "y": 262, "width": 170, "height": 20, "text": "stETH -> ETH (Uniswap)", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "textAlign": "center", "verticalAlign": "middle", "containerId": "step5", "originalText": "5. SWAP", "autoResize": true},
+
+    {"type": "arrow", "id": "a4", "x": 230, "y": 260, "width": 50, "height": 0, "points": [[0,0],[50,0]], "endArrowhead": "arrow", "strokeColor": "#1971c2", "startBinding": {"elementId": "step5", "fixedPoint": [1, 0.5]}, "endBinding": {"elementId": "step4", "fixedPoint": [0, 0.5]}},
+
+    {"type": "rectangle", "id": "step6", "x": 510, "y": 220, "width": 180, "height": 80, "roundness": {"type": 3}, "backgroundColor": "#fff3bf", "fillStyle": "solid", "boundElements": [{"id": "t_step6", "type": "text"}, {"id": "t_step6_sub", "type": "text"}]},
+    {"type": "text", "id": "t_step6", "x": 515, "y": 235, "width": 170, "height": 25, "text": "6. WITHDRAW", "fontSize": 18, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "verticalAlign": "middle", "containerId": "step6", "originalText": "6. WITHDRAW", "autoResize": true},
+    {"type": "text", "id": "t_step6_sub", "x": 515, "y": 262, "width": 170, "height": 20, "text": "Request unlock (optional)", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "textAlign": "center", "verticalAlign": "middle", "containerId": "step6", "originalText": "6. WITHDRAW", "autoResize": true},
+
+    {"type": "arrow", "id": "a5", "x": 460, "y": 260, "width": 50, "height": 0, "points": [[0,0],[50,0]], "endArrowhead": "arrow", "strokeColor": "#1971c2", "startBinding": {"elementId": "step4", "fixedPoint": [1, 0.5]}, "endBinding": {"elementId": "step6", "fixedPoint": [0, 0.5]}},
+
+    {"type": "text", "id": "note1", "x": 50, "y": 340, "width": 640, "height": 80, "text": "KEY INSIGHT: Principal is locked forever (or until withdrawal request completes).\nYield accumulates automatically as stETH rebases.\nAgent can only SPEND the yield - principal remains protected.\nThis enables autonomous agents to operate sustainably without draining funds.", "fontSize": 16, "fontFamily": 1, "strokeColor": "#495057", "textAlign": "center"}
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff"
+  }
+}

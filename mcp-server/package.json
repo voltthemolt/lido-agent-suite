@@ -1,0 +1,22 @@
+{
+  "name": "@lido-agent-suite/mcp-server",
+  "version": "1.0.0",
+  "description": "MCP Server for Lido protocol with stETH/wstETH integration and Agent Treasury",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "lido-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "viem": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "hermes-agent",
+  "elements": [
+    {"type": "rectangle", "id": "bg_user", "x": 50, "y": 30, "width": 600, "height": 120, "strokeColor": "#e9ecef", "backgroundColor": "#f8f9fa", "fillStyle": "solid"},
+    {"type": "text", "id": "t_bg_user", "x": 55, "y": 40, "text": "User Layer", "fontSize": 14, "fontFamily": 1, "strokeColor": "#868e96", "textAlign": "left"},
+    
+    {"type": "rectangle", "id": "bg_mcp", "x": 50, "y": 200, "width": 600, "height": 180, "strokeColor": "#e9ecef", "backgroundColor": "#f8f9fa", "fillStyle": "solid"},
+    {"type": "text", "id": "t_bg_mcp", "x": 55, "y": 210, "text": "MCP Server Layer", "fontSize": 14, "fontFamily": 1, "strokeColor": "#868e96", "textAlign": "left"},
+    
+    {"type": "rectangle", "id": "bg_chain", "x": 50, "y": 430, "width": 600, "height": 180, "strokeColor": "#e9ecef", "backgroundColor": "#f8f9fa", "fillStyle": "solid"},
+    {"type": "text", "id": "t_bg_chain", "x": 55, "y": 440, "text": "Blockchain Layer (Ethereum)", "fontSize": 14, "fontFamily": 1, "strokeColor": "#868e96", "textAlign": "left"},
+
+    {"type": "rectangle", "id": "user", "x": 200, "y": 60, "width": 180, "height": 60, "roundness": {"type": 3}, "backgroundColor": "#a5d8ff", "fillStyle": "solid", "boundElements": [{"id": "t_user", "type": "text"}]},
+    {"type": "text", "id": "t_user", "x": 205, "y": 78, "width": 170, "height": 25, "text": "AI Agent (Hermes)", "fontSize": 18, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "verticalAlign": "middle", "containerId": "user", "originalText": "AI Agent (Hermes)", "autoResize": true},
+    
+    {"type": "rectangle", "id": "erc8004", "x": 420, "y": 60, "width": 180, "height": 60, "roundness": {"type": 3}, "backgroundColor": "#d0bfff", "fillStyle": "solid", "boundElements": [{"id": "t_erc8004", "type": "text"}]},
+    {"type": "text", "id": "t_erc8004", "x": 425, "y": 78, "width": 170, "height": 25, "text": "ERC-8004 Identity", "fontSize": 18, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "verticalAlign": "middle", "containerId": "erc8004", "originalText": "ERC-8004 Identity", "autoResize": true},
+
+    {"type": "rectangle", "id": "mcp", "x": 100, "y": 240, "width": 500, "height": 100, "roundness": {"type": 3}, "backgroundColor": "#b2f2bb", "fillStyle": "solid", "boundElements": [{"id": "t_mcp", "type": "text"}, {"id": "t_mcp_sub", "type": "text"}]},
+    {"type": "text", "id": "t_mcp", "x": 105, "y": 255, "width": 490, "height": 30, "text": "Lido MCP Server", "fontSize": 22, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "verticalAlign": "middle", "containerId": "mcp", "originalText": "Lido MCP Server", "autoResize": true},
+    {"type": "text", "id": "t_mcp_sub", "x": 105, "y": 290, "width": 490, "height": 25, "text": "11 Tools: balances, stake, wrap, swap, treasury ops, dry-run", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "textAlign": "center", "verticalAlign": "middle", "containerId": "mcp", "originalText": "11 Tools: balances, stake, wrap, swap, treasury ops, dry-run", "autoResize": true},
+
+    {"type": "rectangle", "id": "lido", "x": 100, "y": 470, "width": 160, "height": 80, "roundness": {"type": 3}, "backgroundColor": "#ffd8a8", "fillStyle": "solid", "boundElements": [{"id": "t_lido", "type": "text"}, {"id": "t_lido_sub", "type": "text"}]},
+    {"type": "text", "id": "t_lido", "x": 105, "y": 485, "width": 150, "height": 25, "text": "Lido Protocol", "fontSize": 18, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "verticalAlign": "middle", "containerId": "lido", "originalText": "Lido Protocol", "autoResize": true},
+    {"type": "text", "id": "t_lido_sub", "x": 105, "y": 512, "width": 150, "height": 20, "text": "stETH / wstETH", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "textAlign": "center", "verticalAlign": "middle", "containerId": "lido", "originalText": "stETH / wstETH", "autoResize": true},
+
+    {"type": "rectangle", "id": "treasury", "x": 300, "y": 470, "width": 160, "height": 80, "roundness": {"type": 3}, "backgroundColor": "#c3fae8", "fillStyle": "solid", "boundElements": [{"id": "t_treasury", "type": "text"}, {"id": "t_treasury_sub", "type": "text"}]},
+    {"type": "text", "id": "t_treasury", "x": 305, "y": 485, "width": 150, "height": 25, "text": "Agent Treasury", "fontSize": 18, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "verticalAlign": "middle", "containerId": "treasury", "originalText": "Agent Treasury", "autoResize": true},
+    {"type": "text", "id": "t_treasury_sub", "x": 305, "y": 512, "width": 150, "height": 20, "text": "Lock Principal\nSpend Yield", "fontSize": 12, "fontFamily": 1, "strokeColor": "#495057", "textAlign": "center", "verticalAlign": "middle", "containerId": "treasury", "originalText": "Lock Principal\nSpend Yield", "autoResize": true},
+
+    {"type": "rectangle", "id": "uniswap", "x": 500, "y": 470, "width": 160, "height": 80, "roundness": {"type": 3}, "backgroundColor": "#fff3bf", "fillStyle": "solid", "boundElements": [{"id": "t_uniswap", "type": "text"}, {"id": "t_uniswap_sub", "type": "text"}]},
+    {"type": "text", "id": "t_uniswap", "x": 505, "y": 485, "width": 150, "height": 25, "text": "Uniswap V3", "fontSize": 18, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "verticalAlign": "middle", "containerId": "uniswap", "originalText": "Uniswap V3", "autoResize": true},
+    {"type": "text", "id": "t_uniswap_sub", "x": 505, "y": 512, "width": 150, "height": 20, "text": "stETH <-> ETH", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "textAlign": "center", "verticalAlign": "middle", "containerId": "uniswap", "originalText": "stETH <-> ETH", "autoResize": true},
+
+    {"type": "arrow", "id": "a1", "x": 290, "y": 120, "width": 0, "height": 120, "points": [[0,0],[0,120]], "endArrowhead": "arrow", "strokeColor": "#1971c2", "startBinding": {"elementId": "user", "fixedPoint": [0.5, 1]}, "endBinding": {"elementId": "mcp", "fixedPoint": [0.38, 0]}},
+    {"type": "arrow", "id": "a2", "x": 350, "y": 340, "width": 0, "height": 130, "points": [[0,0],[0,130]], "endArrowhead": "arrow", "strokeColor": "#1971c2", "startBinding": {"elementId": "mcp", "fixedPoint": [0.5, 1]}, "endBinding": {"elementId": "treasury", "fixedPoint": [0.5, 0]}},
+
+    {"type": "arrow", "id": "a3", "x": 180, "y": 340, "width": 0, "height": 130, "points": [[0,0],[0,130]], "endArrowhead": "arrow", "strokeColor": "#1971c2", "startBinding": {"elementId": "mcp", "fixedPoint": [0.16, 1]}, "endBinding": {"elementId": "lido", "fixedPoint": [0.5, 0]}},
+
+    {"type": "arrow", "id": "a4", "x": 580, "y": 340, "width": 0, "height": 130, "points": [[0,0],[0,130]], "endArrowhead": "arrow", "strokeColor": "#1971c2", "startBinding": {"elementId": "mcp", "fixedPoint": [0.96, 1]}, "endBinding": {"elementId": "uniswap", "fixedPoint": [0.5, 0]}},
+
+    {"type": "arrow", "id": "a5", "x": 380, "y": 90, "width": 40, "height": 0, "points": [[0,0],[40,0]], "endArrowhead": "arrow", "strokeColor": "#7950f2", "startBinding": {"elementId": "user", "fixedPoint": [1, 0.5]}, "endBinding": {"elementId": "erc8004", "fixedPoint": [0, 0.5]}, "boundElements": [{"id": "t_a5", "type": "text"}]},
+    {"type": "text", "id": "t_a5", "x": 385, "y": 70, "width": 30, "height": 20, "text": "owns", "fontSize": 14, "fontFamily": 1, "strokeColor": "#7950f2", "textAlign": "center", "verticalAlign": "middle", "containerId": "a5", "originalText": "owns", "autoResize": true},
+
+    {"type": "arrow", "id": "a6", "x": 260, "y": 510, "width": 40, "height": 0, "points": [[0,0],[40,0]], "endArrowhead": "arrow", "strokeStyle": "dashed", "strokeColor": "#495057", "startBinding": {"elementId": "lido", "fixedPoint": [1, 0.5]}, "endBinding": {"elementId": "treasury", "fixedPoint": [0, 0.5]}, "boundElements": [{"id": "t_a6", "type": "text"}]},
+    {"type": "text", "id": "t_a6", "x": 265, "y": 490, "width": 30, "height": 20, "text": "yield", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "textAlign": "center", "verticalAlign": "middle", "containerId": "a6", "originalText": "yield", "autoResize": true},
+
+    {"type": "arrow", "id": "a7", "x": 460, "y": 510, "width": 40, "height": 0, "points": [[0,0],[40,0]], "endArrowhead": "arrow", "strokeStyle": "dashed", "strokeColor": "#495057", "startBinding": {"elementId": "treasury", "fixedPoint": [1, 0.5]}, "endBinding": {"elementId": "uniswap", "fixedPoint": [0, 0.5]}, "boundElements": [{"id": "t_a7", "type": "text"}]},
+    {"type": "text", "id": "t_a7", "x": 465, "y": 490, "width": 30, "height": 20, "text": "swap", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "textAlign": "center", "verticalAlign": "middle", "containerId": "a7", "originalText": "swap", "autoResize": true},
+
+    {"type": "text", "id": "title", "x": 200, "y": 650, "width": 300, "height": 30, "text": "Lido Agent Suite Architecture", "fontSize": 24, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center"}
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff"
+  }
+}
