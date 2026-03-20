@@ -221,6 +221,16 @@ This project qualifies for multiple Synthesis tracks:
 - [Treasury Lifecycle](docs/treasury-lifecycle.excalidraw) - Flow diagram
 - [Skill File](docs/lido-agent.skill.md) - For Hermes Agent integration
 
+## Deployed Contracts (Base Sepolia)
+
+| Contract | Address |
+|----------|---------|
+| AgentTreasury | `0x783E503450eBC4710308ae2140690d04E675BBD3` |
+| MockStETH | `0xCfbE65e9292f169AAbE2f0d935BcE1f100bE5496` |
+| MockWstETH | `0x811cf1De839F88D74f05d170e2dF96e20b8FCD04` |
+
+> **Owner:** `0x0b020802af83e7ccbd3b65c818c67fb5775ff7aa`
+
 ## Development
 
 ### Project Structure
