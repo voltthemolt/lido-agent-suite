@@ -742,20 +742,31 @@
             }
         });
 
+        // Smart formatting: show enough decimals to display meaningful digits
+        function smartFormat(value, minDecimals, maxDecimals) {
+            if (value === 0) return '0.' + '0'.repeat(minDecimals);
+            const abs = Math.abs(value);
+            // Find first significant digit position
+            if (abs >= 0.01) return value.toFixed(minDecimals);
+            const magnitude = -Math.floor(Math.log10(abs));
+            const decimals = Math.min(Math.max(magnitude + 2, minDecimals), maxDecimals);
+            return value.toFixed(decimals);
+        }
+
         async function loadInfo() {
             try {
                 const balance = await wsteth.balanceOf(userAddress);
-                document.getElementById('wstethBalance').textContent = `Wallet: ${parseFloat(ethers.utils.formatEther(balance)).toFixed(4)} wstETH`;
+                document.getElementById('wstethBalance').textContent = `Wallet: ${parseFloat(ethers.utils.formatEther(balance)).toFixed(6)} wstETH`;
 
                 const stats = await treasury.getYieldStats(userAddress);
-                document.getElementById('principal').textContent = parseFloat(ethers.utils.formatEther(stats[0])).toFixed(4);
-                document.getElementById('principalSteth').textContent = `${parseFloat(ethers.utils.formatEther(stats[1])).toFixed(4)} stETH value`;
-                document.getElementById('totalYield').textContent = parseFloat(ethers.utils.formatEther(stats[2])).toFixed(6);
+                document.getElementById('principal').textContent = smartFormat(parseFloat(ethers.utils.formatEther(stats[0])), 4, 10);
+                document.getElementById('principalSteth').textContent = `${smartFormat(parseFloat(ethers.utils.formatEther(stats[1])), 4, 10)} stETH value`;
+                document.getElementById('totalYield').textContent = smartFormat(parseFloat(ethers.utils.formatEther(stats[2])), 6, 12);
                 document.getElementById('apy').textContent = `APY: ${(stats[3] / 100).toFixed(2)}%`;
 
                 const availYield = await treasury.getAvailableYield(userAddress);
                 const yieldAmt = parseFloat(ethers.utils.formatEther(availYield));
-                document.getElementById('yield').textContent = yieldAmt.toFixed(6);
+                document.getElementById('yield').textContent = smartFormat(yieldAmt, 6, 12);
                 document.getElementById('yieldUsd').textContent = `${formatUsd(yieldAmt)}`;
 
                 const rate = await treasury.getCurrentStEthPerToken();
