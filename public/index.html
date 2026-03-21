@@ -681,17 +681,29 @@
 
         let provider, signer, treasury, wsteth, usdc, userAddress;
         let wstethUsdPrice = null;
+        let lidoApr = null;
 
-        // Fetch wstETH price from CoinGecko
-        async function fetchWstethPrice() {
+        // Fetch wstETH price and Lido APR
+        async function fetchMarketData() {
             try {
-                const resp = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=wrapped-steth&vs_currencies=usd');
-                const data = await resp.json();
-                if (data['wrapped-steth'] && data['wrapped-steth'].usd) {
-                    wstethUsdPrice = data['wrapped-steth'].usd;
+                const [priceResp, aprResp] = await Promise.allSettled([
+                    fetch('https://api.coingecko.com/api/v3/simple/price?ids=wrapped-steth&vs_currencies=usd'),
+                    fetch('https://eth-api.lido.fi/v1/protocol/steth/apr/sma')
+                ]);
+                if (priceResp.status === 'fulfilled') {
+                    const data = await priceResp.value.json();
+                    if (data['wrapped-steth'] && data['wrapped-steth'].usd) {
+                        wstethUsdPrice = data['wrapped-steth'].usd;
+                    }
+                }
+                if (aprResp.status === 'fulfilled') {
+                    const data = await aprResp.value.json();
+                    if (data.data && data.data.smaApr) {
+                        lidoApr = parseFloat(data.data.smaApr);
+                    }
                 }
             } catch (e) {
-                console.warn('Price fetch failed, using estimate');
+                console.warn('Market data fetch failed, using estimates');
             }
         }
 
@@ -700,8 +712,8 @@
             return `$${(wstethAmount * price).toFixed(2)}`;
         }
 
-        // Fetch price on load
-        fetchWstethPrice();
+        // Fetch market data on load
+        fetchMarketData();
 
         document.getElementById('connectBtn').addEventListener('click', async () => {
             if (!window.ethereum) return alert('Install MetaMask');
@@ -762,7 +774,10 @@
                 document.getElementById('principal').textContent = smartFormat(parseFloat(ethers.utils.formatEther(stats[0])), 4, 10);
                 document.getElementById('principalSteth').textContent = `${smartFormat(parseFloat(ethers.utils.formatEther(stats[1])), 4, 10)} stETH value`;
                 document.getElementById('totalYield').textContent = smartFormat(parseFloat(ethers.utils.formatEther(stats[2])), 6, 12);
-                document.getElementById('apy').textContent = `APY: ${(stats[3] / 100).toFixed(2)}%`;
+                // Use Lido's published APR instead of on-chain calc (which is
+                // distorted when rate oracle is updated in large steps)
+                const displayApr = lidoApr != null ? lidoApr : (stats[3] / 100);
+                document.getElementById('apy').textContent = `APR: ${displayApr.toFixed(2)}%`;
 
                 const availYield = await treasury.getAvailableYield(userAddress);
                 const yieldAmt = parseFloat(ethers.utils.formatEther(availYield));
