@@ -7,27 +7,28 @@ A complete toolkit enabling AI agents to hold, manage, and spend wstETH yield wh
 ## Live Deployment
 
 **Base Mainnet:**
-- Contract V3 (USDC Support): [`0x555895c59C057Bc040dd7995bEe9C8bcB1A7429D`](https://basescan.org/address/0x555895c59C057Bc040dd7995bEe9C8bcB1A7429D)
-- Contract V2 (Uniswap): [`0x226AF8855e1B08385962a57f74BB75b240bdCEf6`](https://basescan.org/address/0x226AF8855e1B08385962a57f74BB75b240bdCEf6)
+- **Contract V4 (Active):** [`0x4e0acb29d642982403a3bd6a40181a828f2265a0`](https://basescan.org/address/0x4e0acb29d642982403a3bd6a40181a828f2265a0) - L2-compatible with oracle rate
+- Contract V3: [`0x555895c59C057Bc040dd7995bEe9C8bcB1A7429D`](https://basescan.org/address/0x555895c59C057Bc040dd7995bEe9C8bcB1A7429D)
+- Contract V2: [`0x226AF8855e1B08385962a57f74BB75b240bdCEf6`](https://basescan.org/address/0x226AF8855e1B08385962a57f74BB75b240bdCEf6)
 - Contract V1: [`0x19BaBAAc240CdBCD7D693c92eB4Df9BA9Eb4Fc0e`](https://basescan.org/address/0x19BaBAAc240CdBCD7D693c92eB4Df9BA9Eb4Fc0e)
 - wstETH: [`0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452`](https://basescan.org/token/0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452)
 - USDC: [`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`](https://basescan.org/token/0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913)
 - Frontend: [lido-agent-suite.vercel.app](https://lido-agent-suite.vercel.app)
 
 **Features:**
-- ✅ Deposit wstETH, earn staking yield automatically
-- ✅ Sweep yield to wallet (claim just the interest)
-- ✅ Swap yield to ETH via Uniswap V3 (bypass withdrawal delay)
-- ✅ Swap yield to USDC for AI inference (Venice, Bankr)
-- ✅ Spend yield on allowlisted services
-- ✅ Withdraw principal with 7-day timelock
-- ✅ Real-time yield tracking and APY display
+- Deposit wstETH, earn staking yield automatically
+- Sweep yield to wallet (claim just the interest)
+- Swap yield to ETH via Uniswap V3 (bypass withdrawal delay)
+- Swap yield to USDC for AI inference (Venice, Bankr)
+- Spend yield on allowlisted services
+- Withdraw principal with 7-day timelock
+- Real-time yield tracking and APY display
 
-**🏆 Prize Eligibility:**
+**Prize Eligibility:**
 | Sponsor | Feature | How We Use It |
 |---------|---------|---------------|
 | **Lido** | wstETH staking | Core yield generation |
-| **Uniswap** | V3 SwapRouter | Instant wstETH → ETH/USDC |
+| **Uniswap** | V3 SwapRouter | Instant wstETH -> ETH/USDC |
 | **Base** | L2 deployment | Low gas costs ($0.14 vs $80+) |
 | **Venice** | AI inference | USDC payments for uncensored AI |
 
@@ -48,8 +49,8 @@ But giving an agent full control over a wallet is risky - one bug or exploit cou
 ### The Solution
 
 **Agent Treasury** - A smart contract that:
-1. Accepts stETH deposits
-2. Locks the principal forever (or via withdrawal request)
+1. Accepts wstETH deposits
+2. Locks the principal (withdrawable via 7-day timelock)
 3. Lets agents spend ONLY the accumulated yield
 4. Integrates with ERC-8004 for agent identity
 
@@ -58,62 +59,83 @@ This creates a **sustainable funding model** where agents can operate autonomous
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      User Layer                              │
-│  ┌──────────────────┐      ┌──────────────────┐             │
-│  │   AI Agent       │──────│  ERC-8004 Identity│             │
-│  │  (Hermes/Claude) │ owns │  (On-chain NFT)   │             │
-│  └────────┬─────────┘      └──────────────────┘             │
-└───────────┼─────────────────────────────────────────────────┘
-            │ MCP Protocol
-            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   MCP Server Layer                          │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │              Lido MCP Server                         │   │
-│  │   13 Tools: balances, stake, wrap, swap, treasury,  │   │
-│  │   governance, dry-run simulation                    │   │
-│  └──────────────────────┬──────────────────────────────┘   │
-└─────────────────────────┼───────────────────────────────────┘
-                          │
-            ┌─────────────┼─────────────┐
-            ▼             ▼             ▼
-┌───────────────┐ ┌───────────────┐ ┌───────────────┐
-│ Lido Protocol │ │ Agent Treasury│ │  Uniswap V3   │
-│ stETH/wstETH  │ │ Lock & Spend  │ │ stETH <-> ETH │
-└───────────────┘ └───────────────┘ └───────────────┘
++---------------------------------------------------------+
+|                      User Layer                          |
+|  +------------------+      +------------------+         |
+|  |   AI Agent       |------|  ERC-8004 Identity|         |
+|  |  (Hermes/Claude) | owns |  (On-chain NFT)   |         |
+|  +--------+---------+      +------------------+         |
++-----------|----------------------------------------------+
+            | MCP Protocol
+            v
++---------------------------------------------------------+
+|                   MCP Server Layer                       |
+|  +---------------------------------------------------+  |
+|  |              Lido MCP Server (Base)                |  |
+|  |   13 Tools: balances, stake, wrap, swap, treasury, |  |
+|  |   dry-run simulation                               |  |
+|  +------------------------+---------------------------+  |
++--------------------------|-------------------------------+
+                           |
+             +-------------+-------------+
+             v             v             v
+  +---------------+ +---------------+ +---------------+
+  | Lido Protocol | | Agent Treasury| |  Uniswap V3   |
+  | stETH/wstETH  | | Lock & Spend  | | wstETH <> ETH |
+  +---------------+ +---------------+ +---------------+
 ```
 
-## Components
+## Contract Evolution
 
-### 1. Agent Treasury Smart Contract
+### V4 (Current - Base L2 Compatible)
+
+**Location:** `contracts/src/AgentTreasuryV4.sol`
+
+V3 had a critical L2 compatibility issue: Base's bridged wstETH is a plain ERC20 that lacks `stEthPerToken()`, `getStETHByWstETH()`, and other rate functions available on Ethereum mainnet. Every V3 deposit/yield operation reverted on Base.
+
+**V4 fixes this** with:
+- **Owner-updatable rate oracle** - `stEthPerToken` stored as state, synced from L1 via `updateRate()`
+- **SwapRouter02 interface** - Base uses Uniswap SwapRouter02 (no `deadline` in struct)
+- **Correct fee tiers** - 0.01% for wstETH/WETH (correlated pair on Base)
+- **203 total tests** across V1, V3, and V4 test suites
+
+### V3 (USDC/AI Inference)
+
+**Location:** `contracts/src/AgentTreasuryV3.sol`
+
+Added Uniswap V3 integration for swapping yield to ETH and USDC. Note: non-functional on Base due to missing wstETH rate functions (see V4).
+
+### V1 (Original)
 
 **Location:** `contracts/src/AgentTreasury.sol`
 
-A Solidity contract that manages stETH deposits with principal protection.
+Core treasury with stETH deposits, yield tracking, allowlisted spending, and 7-day withdrawal timelock.
+
+## Components
+
+### 1. Agent Treasury Smart Contract (V4)
 
 **Key Features:**
-- Deposit stETH with optional ERC-8004 identity binding
-- Principal locked in wstETH (shares)
-- Yield tracking via rebase differential
+- Deposit wstETH with optional ERC-8004 identity binding
+- Principal locked in wstETH shares
+- Yield tracking via stEthPerToken rate differential (oracle-based)
+- Sweep yield as wstETH, or swap to ETH/USDC via Uniswap V3
 - Allowlisted service providers for spending
-- Withdrawal request mechanism (timelock)
-- Emergency controls
+- Batch allowlist AI providers
+- 7-day timelock withdrawal
 
-**Test Results:** 18/18 tests passing
+**Test Results:** 203/203 passing (18 V1 + 27 V1 invariant + 80 V3 + 76 V4 + 2 Counter)
 
 ```bash
 cd contracts
 forge test -vvv
 ```
 
-### 2. Lido MCP Server
+### 2. Lido MCP Server (Base)
 
 **Location:** `mcp-server/`
 
-A Model Context Protocol server exposing 13 tools for AI agents.
-
-**Tools Available:**
+A Model Context Protocol server targeting Base mainnet, exposing 13 tools for AI agents.
 
 | Tool | Description |
 |------|-------------|
@@ -131,11 +153,11 @@ A Model Context Protocol server exposing 13 tools for AI agents.
 | `treasury_info` | Get treasury info |
 | `dry_run` | Simulate transaction |
 
-### 3. Developer Skill File
+### 3. Web Frontend
 
-**Location:** `docs/lido-agent.skill.md`
+**Location:** `frontend/index.html` (deployed via Vercel)
 
-A Hermes Agent skill file for easy integration.
+Single-page app with MetaMask integration for Base mainnet. Supports deposit, sweep, swap (ETH/USDC), and withdrawal flows.
 
 ## Quick Start
 
@@ -143,13 +165,11 @@ A Hermes Agent skill file for easy integration.
 
 - Node.js 18+ (for MCP server)
 - Foundry (for smart contracts)
-- An Ethereum RPC URL (optional, defaults to public RPC)
 
 ### Install & Build
 
 ```bash
-# Clone the repo
-git clone https://github.com/YOUR_USERNAME/lido-agent-suite.git
+git clone https://github.com/voltthemolt/lido-agent-suite.git
 cd lido-agent-suite
 
 # Build MCP Server
@@ -172,93 +192,63 @@ node dist/index.js
 
 The server communicates via stdio using the MCP protocol.
 
-### Test the MCP Server
-
-```bash
-# Get staking stats
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_staking_stats","arguments":{}}}' | node dist/index.js
-
-# Get swap quote
-echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_swap_quote","arguments":{"amount":"10"}}}' | node dist/index.js
-
-# Check stETH balance
-echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_steth_balance","arguments":{"address":"0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"}}}' | node dist/index.js
-```
-
 ## Treasury Lifecycle
 
 ```
 1. DEPOSIT          2. LOCK           3. ACCRUE          4. SPEND
-┌──────────┐       ┌──────────┐      ┌──────────┐       ┌──────────┐
-│ Agent    │──────>│ Principal│─────>│ Yield    │──────>│ Service  │
-│ deposits │       │ LOCKED    │      │ grows    │       │ Provider │
-│ stETH    │       │ forever   │      │ 3-4% APR │       │(allowlist│
-└──────────┘       └──────────┘      └──────────┘       └──────────┘
-                                                │
-                                                ▼
-                                         ┌──────────┐
-                                         │  SWAP    │
-                                         │stETH->ETH│
-                                         │(Uniswap) │
-                                         └──────────┘
++----------+       +----------+      +----------+       +----------+
+| Agent    |------>| Principal|----->| Yield    |------>| Service  |
+| deposits |       | LOCKED   |      | grows    |       | Provider |
+| wstETH   |       | (7d lock)|      | via rate |       |(allowlist|
++----------+       +----------+      +----------+       +----------+
+                                             |
+                                             v
+                                      +----------+
+                                      |  SWAP    |
+                                      |wstETH->  |
+                                      |ETH/USDC  |
+                                      |(Uniswap) |
+                                      +----------+
 ```
 
-**Key Insight:** The principal is protected. Agents can only spend the yield that accumulates over time. This enables sustainable autonomous operation.
+## On-Chain Activity (Base Mainnet)
 
-## Hackathon Tracks
-
-This project qualifies for multiple Synthesis tracks:
-
-| Track | Prize | Why We Qualify |
-|-------|-------|----------------|
-| **Lido MCP** | $5,000 | Full MCP server with 13 tools |
-| **stETH Agent Treasury** | $3,000 | Purpose-built contract |
-| **ERC-8004 Agents With Receipts** | $4,000 | Identity binding in contract |
-| **Yield-Powered AI Agents** | $600 | Core functionality |
-| **Programmable Yield Infrastructure** | $400 | Treasury contract |
-| **Let the Agent Cook** | $4,000 | Autonomous operation |
-| **Synthesis Open Track** | $25,000 | General eligibility |
-
-**Potential Total: $42,000+**
+| Action | Transaction |
+|--------|-------------|
+| Deploy V4 | Contract `0x4e0acb29d642982403a3bd6a40181a828f2265a0` |
+| WETH Wrap | 0.002 ETH -> WETH |
+| Uniswap Swap | WETH -> 0.00163 wstETH |
+| Deposit | 0.00163 wstETH into treasury |
+| Allowlist | Venice AI + C402 Standard providers |
 
 ## Security Considerations
 
 ### Smart Contract
 - Principal protected by design
 - Allowlist for service providers
-- Timelock on withdrawals
-- Owner-controlled emergency functions
-- Comprehensive test coverage (18 tests)
+- Timelock on withdrawals (7 days)
+- ReentrancyGuard on all state-changing functions
+- Owner-controlled rate oracle (V4)
+- Comprehensive test coverage (203 tests including fuzz/invariant)
 
 ### MCP Server
 - Read-only by default (returns unsigned transactions)
 - Dry-run simulation before execution
 - No private keys stored
-- No message signing required
-
-### Best Practices
-- Always verify transaction data before signing
-- Use dry_run to simulate transactions
-- Keep service provider allowlist updated
-- Monitor treasury for unusual activity
-
-## Documentation
-
-- [Architecture Diagram](docs/architecture.excalidraw) - Open at [excalidraw.com](https://excalidraw.com)
-- [Treasury Lifecycle](docs/treasury-lifecycle.excalidraw) - Flow diagram
-- [Skill File](docs/lido-agent.skill.md) - For Hermes Agent integration
+- Targets Base mainnet
 
 ## Deployed Contracts (Base Mainnet)
 
 | Contract | Address |
 |----------|---------|
-| **AgentTreasuryV3** | `0x555895c59C057Bc040dd7995bEe9C8bcB1A7429D` |
+| **AgentTreasuryV4** (Active) | `0x4e0acb29d642982403a3bd6a40181a828f2265a0` |
+| AgentTreasuryV3 | `0x555895c59C057Bc040dd7995bEe9C8bcB1A7429D` |
 | AgentTreasuryV2 | `0x226AF8855e1B08385962a57f74BB75b240bdCEf6` |
 | wstETH (Base) | `0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452` |
 | USDC (Base) | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
-| Uniswap SwapRouter | `0x2626664c2603336E57B271c5C0b26F421741e481` |
+| Uniswap SwapRouter02 | `0x2626664c2603336E57B271c5C0b26F421741e481` |
 
-> **Owner:** `0x0b020802af83e7ccbd3b65c818c67fb5775ff7aa`
+> **Owner:** `0xf825C976f42F1B2782DdE8190EEB4Cc71152C464`
 
 ## Development
 
@@ -268,29 +258,47 @@ This project qualifies for multiple Synthesis tracks:
 lido-agent-suite/
 ├── contracts/           # Foundry project
 │   ├── src/
-│   │   └── AgentTreasury.sol
+│   │   ├── AgentTreasury.sol      # V1 - Original
+│   │   ├── AgentTreasuryV3.sol    # V3 - Uniswap + USDC
+│   │   └── AgentTreasuryV4.sol    # V4 - Base L2 compatible
 │   └── test/
-│       └── AgentTreasury.t.sol
-├── mcp-server/          # MCP server
+│       ├── AgentTreasury.t.sol          # 18 unit tests
+│       ├── AgentTreasury.invariant.t.sol # 27 fuzz/invariant tests
+│       ├── AgentTreasuryV3.t.sol        # 80 V3 tests
+│       └── AgentTreasuryV4.t.sol        # 76 V4 tests
+├── mcp-server/          # MCP server (Base)
 │   ├── src/
 │   │   └── index.ts
 │   └── dist/
+├── frontend/
+│   └── index.html       # Web UI
+├── public/
+│   └── index.html       # Vercel deployment
 ├── docs/
-│   ├── architecture.excalidraw
-│   ├── treasury-lifecycle.excalidraw
-│   └── lido-agent.skill.md
+│   ├── conversation-log.md    # Agent collaboration log
+│   ├── SECURITY.md
+│   ├── GAS-ANALYSIS.md
+│   └── SKILL.md
 └── README.md
 ```
 
 ### Running Tests
 
 ```bash
-# Smart contract tests
+# All 203 smart contract tests
 cd contracts && forge test -vvv
 
 # MCP server build check
 cd mcp-server && npm run build
 ```
+
+## Process Documentation
+
+The development was a collaboration between:
+- **Hermes Agent** (GLM-5 Turbo) - Initial architecture, contract design, deployment
+- **Claude** (Opus 4.6) - Code review, bug fixes, V4 L2 compatibility, test suite expansion
+
+See [`docs/conversation-log.md`](docs/conversation-log.md) for the full agent collaboration log.
 
 ## License
 
@@ -305,4 +313,4 @@ MIT
 
 ---
 
-**Built with ❤️ by Hermes Agent for the Synthesis Hackathon**
+**Built by Hermes Agent + Claude for the Synthesis Hackathon**

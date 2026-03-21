@@ -23,26 +23,20 @@ import {
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
 import { createPublicClient, createWalletClient, http, formatEther, parseEther } from 'viem';
-import { mainnet } from 'viem/chains';
+import { base } from 'viem/chains';
 
 // ============ Configuration ============
 
 const LIDO_CONTRACTS = {
-  stETH: '0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84' as `0x${string}`,
-  wstETH: '0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0' as `0x${string}`,
-  lidoLocator: '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb' as `0x${string}`,
-  voting: '0x2e59A20f205bB85a89C53e193632b0d5BA6E4C29' as `0x${string}`,
-  agentTreasury: '', // To be deployed
+  stETH: '0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84' as `0x${string}`, // Reference only, not directly used on Base
+  wstETH: '0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452' as `0x${string}`,
+  agentTreasury: '0x4e0acb29d642982403a3bd6a40181a828f2265a0' as `0x${string}`,
 };
 
-// Uniswap V3 contracts (Ethereum mainnet)
+// Uniswap V3 contracts (Base mainnet)
 const UNISWAP_CONTRACTS = {
-  // SwapRouter02 - supports both V2 and V3 swaps
-  swapRouter: '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45' as `0x${string}`,
-  // Quoter V2 for getting exact output quotes
-  quoter: '0x61fFE014bA17989E743c5F6cB21bF9694882746B' as `0x${string}`,
-  // stETH/ETH pool 0.3% fee
-  stEthEthPool: '0xeC6770DD0f8368B6a8538B86321b938a8608B664' as `0x${string}`,
+  // SwapRouter02 on Base
+  swapRouter: '0x2626664c2603336E57B271c5C0b26F421741e481' as `0x${string}`,
 };
 
 // Pool fee for stETH/ETH (0.3%)
@@ -152,10 +146,13 @@ const AGENT_TREASURY_ABI = [
     name: 'getTreasuryInfo',
     inputs: [{ name: 'agent', type: 'address' }],
     outputs: [
-      { name: 'principalShares', type: 'uint256' },
-      { name: 'principalStETH', type: 'uint256' },
+      { name: 'principal', type: 'uint256' },
       { name: 'availableYield', type: 'uint256' },
+      { name: 'totalYieldClaimed', type: 'uint256' },
       { name: 'totalYieldSpent', type: 'uint256' },
+      { name: 'depositTime', type: 'uint256' },
+      { name: 'currentRate', type: 'uint256' },
+      { name: 'depositRate', type: 'uint256' },
       { name: 'exists', type: 'bool' },
     ],
     stateMutability: 'view',
@@ -179,8 +176,8 @@ const server = new Server(
 
 // Create viem client
 const client = createPublicClient({
-  chain: mainnet,
-  transport: http(process.env.ETHEREUM_RPC_URL || 'https://ethereum.publicnode.com'),
+  chain: base,
+  transport: http(process.env.BASE_RPC_URL || process.env.ETHEREUM_RPC_URL || 'https://mainnet.base.org'),
 });
 
 // ============ Tool Definitions ============
@@ -629,20 +626,23 @@ Note: Recipient must be allowlisted.`,
           abi: AGENT_TREASURY_ABI,
           functionName: 'getTreasuryInfo',
           args: [agent],
-        }) as [bigint, bigint, bigint, bigint, boolean];
-        
-        const [principalShares, principalStETH, availableYield, totalYieldSpent, exists] = info;
-        
+        }) as [bigint, bigint, bigint, bigint, bigint, bigint, bigint, boolean];
+
+        const [principal, availableYield, totalYieldClaimed, totalYieldSpent, depositTime, currentRate, depositRate, exists] = info;
+
         return {
           content: [
             {
               type: 'text',
               text: exists
                 ? `Treasury Info for ${agent}:
-- Principal (shares): ${formatEther(principalShares)} wstETH
-- Principal (stETH): ${formatEther(principalStETH)} stETH
-- Available Yield: ${formatEther(availableYield)} stETH
-- Total Yield Spent: ${formatEther(totalYieldSpent)} stETH`
+- Principal: ${formatEther(principal)} wstETH
+- Available Yield: ${formatEther(availableYield)} wstETH
+- Total Yield Claimed: ${formatEther(totalYieldClaimed)} wstETH
+- Total Yield Spent: ${formatEther(totalYieldSpent)} wstETH
+- Deposit Time: ${new Date(Number(depositTime) * 1000).toISOString()}
+- Current Rate: ${formatEther(currentRate)}
+- Deposit Rate: ${formatEther(depositRate)}`
                 : `No treasury found for ${agent}`,
             },
           ],
@@ -728,7 +728,7 @@ Use swap_steth_to_eth to generate the transaction data.`,
         // exactInputSingle for Uniswap V3
         const swapParams = {
           tokenIn: LIDO_CONTRACTS.stETH,
-          tokenOut: '0x0000000000000000000000000000000000000000' as `0x${string}`, // ETH
+          tokenOut: '0x4200000000000000000000000000000000000006' as `0x${string}`, // WETH on Base
           fee: POOL_FEE,
           recipient: recipient === 'SENDER' ? '0x0000000000000000000000000000000000000002' as `0x${string}` : recipient as `0x${string}`, // 0x02 = sender
           amountIn: amountIn,
@@ -750,7 +750,7 @@ Use swap_steth_to_eth to generate the transaction data.`,
 
 Parameters:
 - tokenIn: ${LIDO_CONTRACTS.stETH} (stETH)
-- tokenOut: 0x0000000000000000000000000000000000000000 (ETH)
+- tokenOut: 0x4200000000000000000000000000000000000006 (WETH on Base)
 - fee: ${POOL_FEE}
 - amountIn: ${amountIn.toString()}
 - amountOutMinimum: ${amountOutMinimum.toString()}

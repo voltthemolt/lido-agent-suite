@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lido Agent Treasury V3.2 - Uniswap ETH→wstETH</title>
+    <title>Lido Agent Treasury V4 - Base L2 + Uniswap</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script>
@@ -194,27 +194,26 @@
 
         <!-- Deposit/Withdraw -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <!-- Buy wstETH via Uniswap -->
+            <!-- Buy wstETH via Aerodrome (Base's main DEX) -->
             <div class="bg-gray-900 rounded-xl p-6 border border-blue-800">
                 <h2 class="text-xl font-semibold mb-2 flex items-center gap-2">
-                    <span class="text-pink-400">🦄</span> Buy wstETH with ETH
+                    <span class="text-pink-400">🦄</span> Buy wstETH
                 </h2>
-                <p class="text-gray-400 text-sm mb-4">Swap ETH → wstETH via Uniswap V3 (no API key needed)</p>
-                <div class="mb-4">
-                    <label class="block text-gray-400 text-sm mb-2">ETH Amount</label>
-                    <input type="number" id="ethAmount" placeholder="0.0" step="0.001" 
-                        class="w-full bg-gray-800 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-pink-500">
+                <p class="text-gray-400 text-sm mb-4">Get wstETH on Base (liquidity on Aerodrome)</p>
+                <div class="space-y-3">
+                    <a href="https://app.aerodrome.finance/swap?from=eth&to=0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452" 
+                       target="_blank"
+                       class="block w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 py-3 rounded-lg font-semibold text-center">
+                        Swap on Aerodrome
+                    </a>
+                    <a href="https://app.uniswap.org/swap?chain=base&inputCurrency=eth&outputCurrency=0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452" 
+                       target="_blank"
+                       class="block w-full bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 py-2 rounded-lg font-medium text-center text-sm">
+                        Or via Uniswap Widget
+                    </a>
                 </div>
-                <div class="mb-4 flex items-center gap-2 text-sm text-gray-400">
-                    <span>Slippage:</span>
-                    <input type="number" id="buySlippage" value="0.5" step="0.1" min="0.1" max="5"
-                        class="w-16 bg-gray-800 rounded px-2 py-1 text-center">
-                    <span>%</span>
-                </div>
-                <button id="buyWstethBtn" class="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 py-3 rounded-lg font-semibold disabled:opacity-50" disabled>
-                    Swap on Uniswap V3
-                </button>
-                <p class="text-gray-500 text-xs mt-2">🏆 Uniswap Prize Track: Direct ETH → wstETH swap</p>
+                <p class="text-gray-500 text-xs mt-2">💡 After buying wstETH, deposit it above to earn yield</p>
+                <p class="text-yellow-400 text-xs mt-1">🏆 Uniswap Prize: We use Uniswap V3 for yield swaps (wstETH→ETH/USDC)</p>
             </div>
             
             <div class="bg-gray-900 rounded-xl p-6 border border-gray-800">
@@ -265,8 +264,8 @@
     </div>
 
     <script>
-        // Base Mainnet V3
-        const TREASURY_ADDRESS = '0x555895c59C057Bc040dd7995bEe9C8bcB1A7429D';
+        // Base Mainnet V4 (L2-compatible with oracle rate)
+        const TREASURY_ADDRESS = '0x4e0acb29d642982403a3bd6a40181a828f2265a0';
         const WSTETH_ADDRESS = '0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452';
         const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
         const WETH_ADDRESS = '0x4200000000000000000000000000000000000006';
@@ -400,10 +399,11 @@
             try {
                 const yieldAmount = await treasury.getAvailableYield(userAddress);
                 if (yieldAmount.isZero()) return alert('No yield');
-                
-                // Estimate: 1 wstETH ≈ 1.05 ETH
-                const minOut = yieldAmount.mul(100 - slippage).div(100);
-                
+
+                // Apply slippage: multiply by (1000 - slippage*10) / 1000 to avoid float in BigNumber
+                const slippageBps = Math.round(slippage * 10); // 0.5% -> 5
+                const minOut = yieldAmount.mul(1000 - slippageBps).div(1000);
+
                 const tx = await treasury.swapYieldToETH(minOut);
                 await tx.wait();
                 alert('Swapped to ETH!');
@@ -418,10 +418,14 @@
             try {
                 const yieldAmount = await treasury.getAvailableYield(userAddress);
                 if (yieldAmount.isZero()) return alert('No yield');
-                
-                // Estimate: 1 wstETH ≈ 2600 USDC
-                const minOut = yieldAmount.mul(2600 * (100 - slippage)).div(100);
-                
+
+                // Contract handles the swap internally and returns USDC (6 decimals).
+                // minUsdcOut is in USDC units. Estimate: 1 wstETH ≈ 2600 USDC.
+                // Convert wstETH (18 dec) yield to USDC (6 dec): yield * 2600 / 1e12
+                const slippageBps = Math.round(slippage * 10);
+                const estimatedUsdc = yieldAmount.mul(2600).div(ethers.BigNumber.from('1000000000000')); // 1e12
+                const minOut = estimatedUsdc.mul(1000 - slippageBps).div(1000);
+
                 const tx = await treasury.swapYieldToUSDC(minOut);
                 await tx.wait();
                 alert('Swapped to USDC! Ready for AI inference.');
@@ -433,50 +437,6 @@
 
         document.getElementById('inferenceBtn').addEventListener('click', () => {
             alert('To buy AI inference:\n\n1. Click "Swap to USDC" above\n2. Visit venice.ai or bankr.ai\n3. Connect your wallet\n4. Deposit USDC for credits\n5. Use API key in your agent');
-        });
-
-        // Buy wstETH with ETH via Uniswap V3
-        document.getElementById('buyWstethBtn').addEventListener('click', async () => {
-            const ethAmount = document.getElementById('ethAmount').value;
-            const slippage = parseFloat(document.getElementById('buySlippage').value) || 0.5;
-            
-            if (!ethAmount || ethAmount <= 0) return alert('Enter valid ETH amount');
-            
-            try {
-                const amountIn = ethers.utils.parseEther(ethAmount);
-                
-                // wstETH/WETH pool on Base has 0.05% fee (500)
-                // Fee tiers: 500 = 0.05%, 3000 = 0.3%, 10000 = 1%
-                const fee = 500;
-                
-                // Minimum output with slippage protection
-                // Assume ~1 wstETH per ETH (conservative estimate)
-                const minOut = amountIn.mul(10000 - slippage * 100).div(10000);
-                
-                const deadline = Math.floor(Date.now() / 1000) + 1200; // 20 min
-                
-                const params = {
-                    tokenIn: WETH_ADDRESS,
-                    tokenOut: WSTETH_ADDRESS,
-                    fee: fee,
-                    recipient: userAddress,
-                    deadline: deadline,
-                    amountIn: amountIn,
-                    amountOutMinimum: minOut,
-                    sqrtPriceLimitX96: 0
-                };
-                
-                // Send ETH to swap for wstETH
-                const tx = await router.exactInputSingle(params, { value: amountIn });
-                await tx.wait();
-                
-                alert(`Swapped ${ethAmount} ETH for wstETH on Uniswap V3!`);
-                document.getElementById('ethAmount').value = '';
-                await loadInfo();
-            } catch (err) {
-                console.error(err);
-                alert('Swap failed: ' + (err.reason || err.message));
-            }
         });
 
         document.getElementById('initiateWithdrawBtn').addEventListener('click', async () => {
