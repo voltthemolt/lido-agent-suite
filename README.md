@@ -7,9 +7,18 @@ A complete toolkit enabling AI agents to hold, manage, and spend wstETH yield wh
 ## Live Deployment
 
 **Base Mainnet:**
-- Contract: [`0x19BaBAAc240CdBCD7D693c92eB4Df9BA9Eb4Fc0e`](https://basescan.org/address/0x19BaBAAc240CdBCD7D693c92eB4Df9BA9Eb4Fc0e)
+- Contract V2 (Uniswap): [`0x226AF8855e1B08385962a57f74BB75b240bdCEf6`](https://basescan.org/address/0x226AF8855e1B08385962a57f74BB75b240bdCEf6)
+- Contract V1: [`0x19BaBAAc240CdBCD7D693c92eB4Df9BA9Eb4Fc0e`](https://basescan.org/address/0x19BaBAAc240CdBCD7D693c92eB4Df9BA9Eb4Fc0e)
 - wstETH: [`0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452`](https://basescan.org/token/0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452)
 - Frontend: [lido-agent-suite.vercel.app](https://lido-agent-suite.vercel.app)
+
+**Features:**
+- ✅ Deposit wstETH, earn staking yield automatically
+- ✅ Sweep yield to wallet (claim just the interest)
+- ✅ Swap yield to ETH via Uniswap V3 (bypass withdrawal delay)
+- ✅ Spend yield on allowlisted services
+- ✅ Withdraw principal with 7-day timelock
+- ✅ Real-time yield tracking and APY display
 
 ## Overview
 

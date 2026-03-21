@@ -3,26 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lido Agent Treasury - Base</title>
+    <title>Lido Agent Treasury V2 - Base</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <style>
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.15);
+        }
+        .pulse-green {
+            animation: pulse-green 2s infinite;
+        }
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+        }
+    </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen">
-    <div class="container mx-auto px-4 py-8 max-w-4xl">
+<body class="bg-gray-950 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-5xl">
         <!-- Header -->
         <div class="text-center mb-12">
-            <h1 class="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+            <h1 class="text-4xl font-bold mb-2 gradient-text">
                 Lido Agent Treasury
             </h1>
             <p class="text-gray-400">Sustainable funding for AI agents using wstETH yield on Base</p>
-            <div class="mt-4 inline-block bg-green-900/30 text-green-400 px-4 py-1 rounded-full text-sm">
+            <div class="mt-4 inline-flex items-center gap-2 bg-green-900/30 text-green-400 px-4 py-1 rounded-full text-sm">
+                <span class="w-2 h-2 bg-green-500 rounded-full pulse-green"></span>
                 Live on Base Mainnet
             </div>
         </div>
 
         <!-- Connection Status -->
-        <div id="connectSection" class="bg-gray-800 rounded-xl p-6 mb-6">
-            <button id="connectBtn" class="w-full bg-blue-600 hover:bg-blue-700 py-3 px-6 rounded-lg font-semibold transition">
+        <div id="connectSection" class="bg-gray-900 rounded-xl p-6 mb-6 border border-gray-800">
+            <button id="connectBtn" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 py-3 px-6 rounded-lg font-semibold transition">
                 Connect Wallet
             </button>
             <p id="walletAddress" class="text-center mt-4 text-gray-400 hidden"></p>
@@ -30,49 +49,97 @@
         </div>
 
         <!-- Stats Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div class="bg-gray-800 rounded-xl p-6">
-                <p class="text-gray-400 text-sm mb-1">Your Principal</p>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-gray-900 rounded-xl p-6 border border-gray-800 card-hover transition-all">
+                <p class="text-gray-400 text-sm mb-1">Principal</p>
                 <p id="principal" class="text-2xl font-bold">0.00 wstETH</p>
+                <p id="principalSteth" class="text-sm text-gray-500">≈ 0.00 stETH</p>
             </div>
-            <div class="bg-gray-800 rounded-xl p-6">
+            <div class="bg-gray-900 rounded-xl p-6 border border-green-800 card-hover transition-all">
                 <p class="text-gray-400 text-sm mb-1">Available Yield</p>
                 <p id="yield" class="text-2xl font-bold text-green-400">0.00 wstETH</p>
+                <p id="yieldUsd" class="text-sm text-gray-500">≈ $0.00</p>
             </div>
-            <div class="bg-gray-800 rounded-xl p-6">
-                <p class="text-gray-400 text-sm mb-1">Total Yield Spent</p>
-                <p id="spent" class="text-2xl font-bold text-purple-400">0.00 wstETH</p>
+            <div class="bg-gray-900 rounded-xl p-6 border border-gray-800 card-hover transition-all">
+                <p class="text-gray-400 text-sm mb-1">Total Yield Earned</p>
+                <p id="totalYield" class="text-2xl font-bold text-purple-400">0.00 wstETH</p>
+                <p id="apy" class="text-sm text-gray-500">APY: --%</p>
+            </div>
+            <div class="bg-gray-900 rounded-xl p-6 border border-gray-800 card-hover transition-all">
+                <p class="text-gray-400 text-sm mb-1">Current Rate</p>
+                <p id="currentRate" class="text-2xl font-bold">1.00</p>
+                <p class="text-sm text-gray-500">stETH per wstETH</p>
             </div>
         </div>
 
-        <!-- Actions -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Yield Actions (New!) -->
+        <div id="yieldActions" class="bg-gray-900 rounded-xl p-6 mb-6 border border-gray-800 hidden">
+            <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                <span class="text-green-400">⚡</span> Yield Actions
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Sweep Yield -->
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <h3 class="font-medium mb-2">Sweep Yield</h3>
+                    <p class="text-gray-400 text-sm mb-3">Claim your earned yield as wstETH to your wallet</p>
+                    <button id="sweepBtn" class="w-full bg-green-600 hover:bg-green-700 py-2 rounded-lg font-medium transition disabled:opacity-50" disabled>
+                        Sweep to Wallet
+                    </button>
+                </div>
+                
+                <!-- Swap to ETH -->
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <h3 class="font-medium mb-2">Swap to ETH</h3>
+                    <p class="text-gray-400 text-sm mb-3">Swap yield to ETH via Uniswap (bypass delay)</p>
+                    <div class="flex gap-2">
+                        <input type="number" id="swapSlippage" placeholder="0.5%" value="0.5" step="0.1"
+                            class="w-20 bg-gray-700 rounded px-2 py-1 text-sm">
+                        <button id="swapBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 py-2 rounded-lg font-medium transition disabled:opacity-50" disabled>
+                            Swap via Uniswap
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Compare Rates -->
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <h3 class="font-medium mb-2">Rate Comparison</h3>
+                    <p class="text-gray-400 text-sm mb-3">Best route for yield → ETH</p>
+                    <button id="compareBtn" class="w-full bg-purple-600 hover:bg-purple-700 py-2 rounded-lg font-medium transition disabled:opacity-50" disabled>
+                        Compare Routes
+                    </button>
+                    <p id="comparisonResult" class="text-xs text-gray-400 mt-2"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <!-- Deposit -->
-            <div class="bg-gray-800 rounded-xl p-6">
+            <div class="bg-gray-900 rounded-xl p-6 border border-gray-800">
                 <h2 class="text-xl font-semibold mb-4">Deposit wstETH</h2>
                 <div class="mb-4">
                     <label class="block text-gray-400 text-sm mb-2">Amount</label>
                     <input type="number" id="depositAmount" placeholder="0.0" step="0.001" 
-                        class="w-full bg-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        class="w-full bg-gray-800 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <button id="depositBtn" class="w-full bg-green-600 hover:bg-green-700 py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                     Deposit
                 </button>
-                <p class="text-gray-500 text-xs mt-2">Min deposit: 0.001 wstETH</p>
+                <p class="text-gray-500 text-xs mt-2">Min: 0.001 wstETH | Yield starts accruing immediately</p>
             </div>
 
             <!-- Spend Yield -->
-            <div class="bg-gray-800 rounded-xl p-6">
-                <h2 class="text-xl font-semibold mb-4">Spend Yield</h2>
+            <div class="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                <h2 class="text-xl font-semibold mb-4">Spend Yield (Allowlisted)</h2>
                 <div class="mb-4">
-                    <label class="block text-gray-400 text-sm mb-2">Recipient (must be allowlisted)</label>
+                    <label class="block text-gray-400 text-sm mb-2">Recipient</label>
                     <input type="text" id="spendRecipient" placeholder="0x..." 
-                        class="w-full bg-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        class="w-full bg-gray-800 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div class="mb-4">
                     <label class="block text-gray-400 text-sm mb-2">Amount (wstETH)</label>
                     <input type="number" id="spendAmount" placeholder="0.0" step="0.001" 
-                        class="w-full bg-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        class="w-full bg-gray-800 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <button id="spendBtn" class="w-full bg-purple-600 hover:bg-purple-700 py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                     Spend Yield
@@ -81,70 +148,66 @@
         </div>
 
         <!-- Withdrawal Section -->
-        <div class="bg-gray-800 rounded-xl p-6 mt-6">
+        <div class="bg-gray-900 rounded-xl p-6 border border-gray-800 mb-8">
             <h2 class="text-xl font-semibold mb-4">Withdraw Principal</h2>
             <div class="mb-4">
                 <label class="block text-gray-400 text-sm mb-2">Amount (wstETH)</label>
                 <input type="number" id="withdrawAmount" placeholder="0.0" step="0.001" 
-                    class="w-full bg-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    class="w-full bg-gray-800 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
-            <p class="text-yellow-400 text-sm mb-4">Note: Withdrawals have a 7-day time lock</p>
+            <p class="text-yellow-400 text-sm mb-4">⚠️ Withdrawals have a 7-day time lock. Consider swapping yield instead for instant access.</p>
             <div class="flex gap-4">
                 <button id="initiateWithdrawBtn" class="flex-1 bg-yellow-600 hover:bg-yellow-700 py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                    Initiate Withdrawal
+                    Initiate
                 </button>
                 <button id="cancelWithdrawBtn" class="bg-gray-600 hover:bg-gray-700 py-3 px-4 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                     Cancel
                 </button>
                 <button id="completeWithdrawBtn" class="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                    Complete Withdrawal
+                    Complete
                 </button>
             </div>
             <p id="withdrawalStatus" class="text-center mt-4 text-gray-400"></p>
         </div>
 
-        <!-- Allowlist Info -->
-        <div class="bg-gray-800 rounded-xl p-6 mt-6">
-            <h2 class="text-xl font-semibold mb-4">Allowlist Service Providers</h2>
-            <p class="text-gray-400 text-sm mb-2">Only allowlisted addresses can receive yield payments.</p>
-            <div id="allowlistContainer" class="space-y-2">
-                <p class="text-gray-500 text-sm">Connect wallet to see allowlist...</p>
-            </div>
-        </div>
-
         <!-- Footer -->
         <div class="text-center mt-12 text-gray-500 text-sm">
-            <p>Built for Synthesis Hackathon | Powered by Lido</p>
-            <p class="mt-1">Contract: <a id="contractAddress" href="#" class="text-blue-400 hover:underline">-</a></p>
-            <p class="mt-1">Your wallet: <span id="walletDisplay" class="text-gray-400">-</span></p>
+            <p>Built for Synthesis Hackathon | Powered by Lido + Uniswap</p>
+            <div class="mt-2 flex justify-center gap-4">
+                <a id="contractLink" href="#" class="text-blue-400 hover:underline">Contract</a>
+                <a href="https://github.com/voltthemolt/lido-agent-suite" class="text-blue-400 hover:underline" target="_blank">GitHub</a>
+            </div>
         </div>
     </div>
 
     <script>
-        // Configuration - Base Mainnet
-        const TREASURY_ADDRESS = '0x19BaBAAc240CdBCD7D693c92eB4Df9BA9Eb4Fc0e';
+        // Configuration - Base Mainnet V2
+        const TREASURY_ADDRESS = '0x226AF8855e1B08385962a57f74BB75b240bdCEf6';
         const WSTETH_ADDRESS = '0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452';
         const BASE_CHAIN_ID = 8453;
         
-        // ABIs (minimal)
+        // ABIs
         const TREASURY_ABI = [
             "function deposit(uint256 amount, uint256 erc8004Id) external",
+            "function sweepYield() external returns (uint256)",
+            "function swapYieldToETH(uint256 minEthOut) external returns (uint256)",
+            "function swapYieldToETHWithFee(uint256 minEthOut, uint24 feeTier) external returns (uint256)",
             "function spendYield(address recipient, uint256 amount, string calldata purpose) external",
             "function initiateWithdrawal(uint256 amount) external",
             "function completeWithdrawal() external",
             "function cancelWithdrawal() external",
-            "function getTreasuryInfo(address agent) external view returns (uint256 principal, uint256 availableYield, uint256 totalYieldSpent, uint256 depositTime, bool exists)",
+            "function getTreasuryInfo(address agent) external view returns (uint256 principal, uint256 availableYield, uint256 totalYieldEarned, uint256 totalYieldClaimed, uint256 totalYieldSpent, uint256 depositTime, uint256 currentStEthPerToken, uint256 depositStEthPerToken, bool exists)",
+            "function getYieldStats(address agent) external view returns (uint256 principalWstETH, uint256 principalStETH, uint256 currentStETHValue, uint256 yieldEarnedStETH, uint256 apr)",
             "function getAvailableYield(address agent) external view returns (uint256)",
-            "function isWithdrawalReady(address agent) external view returns (bool)",
+            "function getCurrentStEthPerToken() external view returns (uint256)",
             "function getWithdrawalInfo(address agent) external view returns (uint256 amount, uint256 unlockTime, bool ready)",
-            "function spendingAllowlist(address) external view returns (bool)",
-            "function serviceProviderNames(address) external view returns (string)"
+            "function spendingAllowlist(address) external view returns (bool)"
         ];
         
         const WSTETH_ABI = [
             "function balanceOf(address) view returns (uint256)",
             "function approve(address, uint256) external returns (bool)",
-            "function allowance(address, address) view returns (uint256)"
+            "function stEthPerToken() view returns (uint256)"
         ];
 
         let provider, signer, treasury, wsteth, userAddress;
@@ -159,7 +222,6 @@
             try {
                 provider = new ethers.providers.Web3Provider(window.ethereum);
                 
-                // Check network
                 const network = await provider.getNetwork();
                 if (network.chainId !== BASE_CHAIN_ID) {
                     try {
@@ -168,7 +230,7 @@
                             params: [{ chainId: '0x' + BASE_CHAIN_ID.toString(16) }]
                         });
                     } catch (switchError) {
-                        alert('Please switch to Base network in your wallet');
+                        alert('Please switch to Base network');
                         return;
                     }
                 }
@@ -183,19 +245,16 @@
                 document.getElementById('connectBtn').classList.add('hidden');
                 document.getElementById('walletAddress').textContent = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
                 document.getElementById('walletAddress').classList.remove('hidden');
-                document.getElementById('walletDisplay').textContent = userAddress;
+                document.getElementById('yieldActions').classList.remove('hidden');
                 
-                // Set contract link
-                document.getElementById('contractAddress').href = `https://basescan.org/address/${TREASURY_ADDRESS}`;
-                document.getElementById('contractAddress').textContent = `${TREASURY_ADDRESS.slice(0, 6)}...${TREASURY_ADDRESS.slice(-4)}`;
+                document.getElementById('contractLink').href = `https://basescan.org/address/${TREASURY_ADDRESS}`;
                 
-                // Enable buttons
                 document.querySelectorAll('button:not(#connectBtn)').forEach(btn => btn.disabled = false);
                 
                 await loadTreasuryInfo();
             } catch (err) {
                 console.error(err);
-                alert('Failed to connect wallet: ' + err.message);
+                alert('Failed to connect: ' + err.message);
             }
         });
 
@@ -204,34 +263,46 @@
             if (!treasury || !userAddress) return;
             
             try {
-                // Get wstETH balance
                 const balance = await wsteth.balanceOf(userAddress);
-                document.getElementById('wstethBalance').textContent = `wstETH Balance: ${parseFloat(ethers.utils.formatEther(balance)).toFixed(4)}`;
+                document.getElementById('wstethBalance').textContent = `Wallet: ${parseFloat(ethers.utils.formatEther(balance)).toFixed(4)} wstETH`;
                 document.getElementById('wstethBalance').classList.remove('hidden');
                 
-                // Get treasury info
-                const info = await treasury.getTreasuryInfo(userAddress);
-                const principal = ethers.utils.formatEther(info.principal);
-                const availableYield = ethers.utils.formatEther(info.availableYield);
-                const totalSpent = ethers.utils.formatEther(info.totalYieldSpent);
+                // Get yield stats
+                const stats = await treasury.getYieldStats(userAddress);
+                const principal = ethers.utils.formatEther(stats.principalWstETH);
+                const principalStETH = ethers.utils.formatEther(stats.principalStETH);
+                const currentStETH = ethers.utils.formatEther(stats.currentStETHValue);
+                const yieldEarned = ethers.utils.formatEther(stats.yieldEarnedStETH);
+                const apr = stats.apr.toNumber() / 100; // Convert from basis points
                 
                 document.getElementById('principal').textContent = `${parseFloat(principal).toFixed(4)} wstETH`;
-                document.getElementById('yield').textContent = `${parseFloat(availableYield).toFixed(4)} wstETH`;
-                document.getElementById('spent').textContent = `${parseFloat(totalSpent).toFixed(4)} wstETH`;
+                document.getElementById('principalSteth').textContent = `≈ ${parseFloat(currentStETH).toFixed(4)} stETH`;
                 
-                // Check withdrawal status
+                // Get available yield
+                const availYield = await treasury.getAvailableYield(userAddress);
+                const yieldAmount = ethers.utils.formatEther(availYield);
+                document.getElementById('yield').textContent = `${parseFloat(yieldAmount).toFixed(6)} wstETH`;
+                document.getElementById('yieldUsd').textContent = `≈ $${(parseFloat(yieldAmount) * 2500).toFixed(2)}`;
+                
+                document.getElementById('totalYield').textContent = `${parseFloat(yieldEarned).toFixed(6)} wstETH`;
+                document.getElementById('apy').textContent = `APY: ${apr.toFixed(2)}%`;
+                
+                // Current rate
+                const rate = await treasury.getCurrentStEthPerToken();
+                const rateFormatted = parseFloat(ethers.utils.formatEther(rate)).toFixed(4);
+                document.getElementById('currentRate').textContent = rateFormatted;
+                
+                // Withdrawal status
                 const withdrawal = await treasury.getWithdrawalInfo(userAddress);
                 if (withdrawal.amount > 0) {
                     const amount = ethers.utils.formatEther(withdrawal.amount);
                     const unlockTime = new Date(withdrawal.unlockTime * 1000);
                     document.getElementById('withdrawalStatus').textContent = 
-                        withdrawal.ready ? `Withdrawal ready: ${parseFloat(amount).toFixed(4)} wstETH` :
-                        `Pending: ${parseFloat(amount).toFixed(4)} wstETH (unlocks ${unlockTime.toLocaleString()})`;
-                } else {
-                    document.getElementById('withdrawalStatus').textContent = 'No pending withdrawal';
+                        withdrawal.ready ? `✅ Ready: ${parseFloat(amount).toFixed(4)} wstETH` :
+                        `⏳ Pending: ${parseFloat(amount).toFixed(4)} wstETH (unlocks ${unlockTime.toLocaleString()})`;
                 }
             } catch (err) {
-                console.error('Failed to load treasury info:', err);
+                console.error('Failed to load info:', err);
             }
         }
 
@@ -242,22 +313,16 @@
             
             try {
                 const amountWei = ethers.utils.parseEther(amount);
-                
-                // Check balance
                 const balance = await wsteth.balanceOf(userAddress);
-                if (balance.lt(amountWei)) {
-                    return alert('Insufficient wstETH balance. Get wstETH on Base first.');
-                }
+                if (balance.lt(amountWei)) return alert('Insufficient wstETH balance');
                 
-                // Approve wstETH
                 const approveTx = await wsteth.approve(TREASURY_ADDRESS, amountWei);
                 await approveTx.wait();
                 
-                // Deposit
                 const depositTx = await treasury.deposit(amountWei, 0);
                 await depositTx.wait();
                 
-                alert('Deposit successful!');
+                alert('Deposit successful! Yield starts accruing now.');
                 document.getElementById('depositAmount').value = '';
                 await loadTreasuryInfo();
             } catch (err) {
@@ -266,19 +331,75 @@
             }
         });
 
-        // Spend yield
+        // Sweep Yield
+        document.getElementById('sweepBtn').addEventListener('click', async () => {
+            try {
+                const tx = await treasury.sweepYield();
+                const receipt = await tx.wait();
+                alert('Yield swept to your wallet!');
+                await loadTreasuryInfo();
+            } catch (err) {
+                console.error(err);
+                alert('Sweep failed: ' + (err.reason || err.message));
+            }
+        });
+
+        // Swap to ETH
+        document.getElementById('swapBtn').addEventListener('click', async () => {
+            const slippage = parseFloat(document.getElementById('swapSlippage').value) || 0.5;
+            try {
+                const yieldAmount = await treasury.getAvailableYield(userAddress);
+                if (yieldAmount.isZero()) return alert('No yield to swap');
+                
+                // Estimate ETH output (rough: assume 1 wstETH ≈ 1.1 ETH)
+                const minOut = yieldAmount.mul(105).div(100); // rough estimate
+                const minOutWithSlippage = minOut.mul(100 - slippage).div(100);
+                
+                const tx = await treasury.swapYieldToETH(minOutWithSlippage);
+                await tx.wait();
+                
+                alert('Yield swapped to ETH! Check your wallet.');
+                await loadTreasuryInfo();
+            } catch (err) {
+                console.error(err);
+                alert('Swap failed: ' + (err.reason || err.message));
+            }
+        });
+
+        // Compare Rates
+        document.getElementById('compareBtn').addEventListener('click', async () => {
+            const result = document.getElementById('comparisonResult');
+            result.textContent = 'Checking rates...';
+            
+            try {
+                // Simple comparison - in production would query Uniswap quoter
+                const yieldAmount = await treasury.getAvailableYield(userAddress);
+                if (yieldAmount.isZero()) {
+                    result.textContent = 'No yield to compare';
+                    return;
+                }
+                
+                // Mock comparison (would use Uniswap Quoter in production)
+                result.innerHTML = `
+                    <span class="text-green-400">Base Uniswap:</span> ~${(parseFloat(ethers.utils.formatEther(yieldAmount)) * 1.05).toFixed(4)} ETH<br>
+                    <span class="text-gray-400">Bridge to L1:</span> Not recommended (gas fees)<br>
+                    <span class="text-yellow-400">Recommendation:</span> Swap on Base
+                `;
+            } catch (err) {
+                result.textContent = 'Error checking rates';
+            }
+        });
+
+        // Spend Yield
         document.getElementById('spendBtn').addEventListener('click', async () => {
             const recipient = document.getElementById('spendRecipient').value;
             const amount = document.getElementById('spendAmount').value;
             
-            if (!ethers.utils.isAddress(recipient)) return alert('Invalid recipient address');
+            if (!ethers.utils.isAddress(recipient)) return alert('Invalid recipient');
             if (!amount || amount <= 0) return alert('Enter a valid amount');
             
-            // Check if allowlisted
             const isAllowlisted = await treasury.spendingAllowlist(recipient);
-            if (!isAllowlisted) {
-                return alert('Recipient is not allowlisted. Only approved service providers can receive yield.');
-            }
+            if (!isAllowlisted) return alert('Recipient not allowlisted');
             
             try {
                 const amountWei = ethers.utils.parseEther(amount);
@@ -286,8 +407,6 @@
                 await tx.wait();
                 
                 alert('Yield spent successfully!');
-                document.getElementById('spendAmount').value = '';
-                document.getElementById('spendRecipient').value = '';
                 await loadTreasuryInfo();
             } catch (err) {
                 console.error(err);
@@ -295,7 +414,7 @@
             }
         });
 
-        // Initiate withdrawal
+        // Withdrawal functions
         document.getElementById('initiateWithdrawBtn').addEventListener('click', async () => {
             const amount = document.getElementById('withdrawAmount').value;
             if (!amount || amount <= 0) return alert('Enter a valid amount');
@@ -305,44 +424,37 @@
                 const tx = await treasury.initiateWithdrawal(amountWei);
                 await tx.wait();
                 
-                alert('Withdrawal initiated! Come back in 7 days to complete.');
-                document.getElementById('withdrawAmount').value = '';
+                alert('Withdrawal initiated! Return in 7 days.');
                 await loadTreasuryInfo();
             } catch (err) {
                 console.error(err);
-                alert('Failed to initiate withdrawal: ' + (err.reason || err.message));
+                alert('Failed: ' + (err.reason || err.message));
             }
         });
 
-        // Cancel withdrawal
         document.getElementById('cancelWithdrawBtn').addEventListener('click', async () => {
             try {
                 const tx = await treasury.cancelWithdrawal();
                 await tx.wait();
-                
-                alert('Withdrawal cancelled!');
+                alert('Withdrawal cancelled');
                 await loadTreasuryInfo();
             } catch (err) {
-                console.error(err);
-                alert('Failed to cancel withdrawal: ' + (err.reason || err.message));
+                alert('Failed: ' + (err.reason || err.message));
             }
         });
 
-        // Complete withdrawal
         document.getElementById('completeWithdrawBtn').addEventListener('click', async () => {
             try {
                 const tx = await treasury.completeWithdrawal();
                 await tx.wait();
-                
-                alert('Withdrawal completed! wstETH sent to your wallet.');
+                alert('Withdrawal complete!');
                 await loadTreasuryInfo();
             } catch (err) {
-                console.error(err);
-                alert('Failed to complete withdrawal: ' + (err.reason || err.message));
+                alert('Failed: ' + (err.reason || err.message));
             }
         });
 
-        // Refresh on block
+        // Auto-refresh
         if (window.ethereum) {
             window.ethereum.on('chainChanged', () => window.location.reload());
             window.ethereum.on('accountsChanged', () => window.location.reload());
