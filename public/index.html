@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lido Agent Treasury V3 - AI Inference Ready</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script>
+        // Verify ethers loaded
+        if (typeof ethers === 'undefined') {
+            document.addEventListener('DOMContentLoaded', () => {
+                document.getElementById('connectBtn').textContent = 'Error: Ethers.js failed to load. Refresh page.';
+            });
+        }
+    </script>
+    <style>
+        .gradient-text { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(102, 126, 234, 0.15); }
+        .pulse-green { animation: pulse-green 2s infinite; }
+        @keyframes pulse-green { 0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); } 50% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); } }
+        .prize-badge { background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); }
+    </style>
+</head>
+<body class="bg-gray-950 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-5xl">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold mb-2 gradient-text">Lido Agent Treasury</h1>
+            <p class="text-gray-400">Sustainable AI agent funding with wstETH yield on Base</p>
+            <div class="mt-4 flex justify-center gap-2 flex-wrap">
+                <span class="inline-flex items-center gap-1 bg-green-900/30 text-green-400 px-3 py-1 rounded-full text-sm">
+                    <span class="w-2 h-2 bg-green-500 rounded-full pulse-green"></span>Base Mainnet
+                </span>
+                <span class="prize-badge text-white px-2 py-1 rounded text-xs font-bold">UNISWAP</span>
+                <span class="prize-badge text-white px-2 py-1 rounded text-xs font-bold">LIDO</span>
+                <span class="prize-badge text-white px-2 py-1 rounded text-xs font-bold">VENICE</span>
+            </div>
+        </div>
+
+        <!-- Prize Eligibility Banner -->
+        <div class="bg-gradient-to-r from-purple-900/50 to-blue-900/50 rounded-xl p-4 mb-6 border border-purple-700">
+            <h3 class="font-semibold text-purple-300 mb-2">🏆 Prize-Eligible Features</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                <div class="bg-gray-800/50 rounded p-2">
+                    <span class="text-yellow-400">Uniswap:</span> wstETH → ETH/USDC swaps
+                </div>
+                <div class="bg-gray-800/50 rounded p-2">
+                    <span class="text-blue-400">Venice:</span> USDC for inference
+                </div>
+                <div class="bg-gray-800/50 rounded p-2">
+                    <span class="text-green-400">Lido:</span> wstETH yield
+                </div>
+                <div class="bg-gray-800/50 rounded p-2">
+                    <span class="text-purple-400">Base:</span> L2 deployment
+                </div>
+            </div>
+        </div>
+
+        <!-- Connect Section -->
+        <div id="connectSection" class="bg-gray-900 rounded-xl p-6 mb-6 border border-gray-800">
+            <button id="connectBtn" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 py-3 px-6 rounded-lg font-semibold transition">
+                Connect Wallet
+            </button>
+            <p id="walletAddress" class="text-center mt-4 text-gray-400 hidden"></p>
+            <p id="wstethBalance" class="text-center mt-2 text-gray-500 text-sm hidden"></p>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-gray-900 rounded-xl p-5 border border-gray-800 card-hover transition-all">
+                <p class="text-gray-400 text-sm mb-1">Principal</p>
+                <p id="principal" class="text-2xl font-bold">0.00 wstETH</p>
+                <p id="principalSteth" class="text-sm text-gray-500">≈ 0.00 stETH</p>
+            </div>
+            <div class="bg-gray-900 rounded-xl p-5 border border-green-800 card-hover transition-all">
+                <p class="text-gray-400 text-sm mb-1">Available Yield</p>
+                <p id="yield" class="text-2xl font-bold text-green-400">0.00 wstETH</p>
+                <p id="yieldUsd" class="text-sm text-gray-500">≈ $0.00</p>
+            </div>
+            <div class="bg-gray-900 rounded-xl p-5 border border-gray-800 card-hover transition-all">
+                <p class="text-gray-400 text-sm mb-1">Total Earned</p>
+                <p id="totalYield" class="text-2xl font-bold text-purple-400">0.00</p>
+                <p id="apy" class="text-sm text-gray-500">APY: --%</p>
+            </div>
+            <div class="bg-gray-900 rounded-xl p-5 border border-gray-800 card-hover transition-all">
+                <p class="text-gray-400 text-sm mb-1">Rate</p>
+                <p id="currentRate" class="text-2xl font-bold">1.00</p>
+                <p class="text-sm text-gray-500">stETH/wstETH</p>
+            </div>
+        </div>
+
+        <!-- Yield Actions -->
+        <div id="yieldActions" class="bg-gray-900 rounded-xl p-6 mb-6 border border-gray-800 hidden">
+            <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                <span class="text-green-400">⚡</span> Yield Actions
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <!-- Sweep -->
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <h3 class="font-medium mb-2">Sweep</h3>
+                    <p class="text-gray-400 text-xs mb-3">Claim yield as wstETH</p>
+                    <button id="sweepBtn" class="w-full bg-green-600 hover:bg-green-700 py-2 rounded font-medium text-sm disabled:opacity-50" disabled>
+                        Sweep to Wallet
+                    </button>
+                </div>
+                
+                <!-- Swap to ETH -->
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <h3 class="font-medium mb-2">→ ETH</h3>
+                    <p class="text-gray-400 text-xs mb-3">Uniswap V3 swap</p>
+                    <button id="swapEthBtn" class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded font-medium text-sm disabled:opacity-50" disabled>
+                        Swap to ETH
+                    </button>
+                </div>
+                
+                <!-- Swap to USDC -->
+                <div class="bg-gray-800 rounded-lg p-4 border border-yellow-700">
+                    <h3 class="font-medium mb-2 text-yellow-400">→ USDC ⭐</h3>
+                    <p class="text-gray-400 text-xs mb-3">For AI inference</p>
+                    <button id="swapUsdcBtn" class="w-full bg-yellow-600 hover:bg-yellow-700 py-2 rounded font-medium text-sm disabled:opacity-50" disabled>
+                        Swap to USDC
+                    </button>
+                </div>
+                
+                <!-- AI Inference -->
+                <div class="bg-gray-800 rounded-lg p-4 border border-purple-700">
+                    <h3 class="font-medium mb-2 text-purple-400">AI Inference 🤖</h3>
+                    <p class="text-gray-400 text-xs mb-3">Venice, Bankr, etc.</p>
+                    <button id="inferenceBtn" class="w-full bg-purple-600 hover:bg-purple-700 py-2 rounded font-medium text-sm disabled:opacity-50" disabled>
+                        Buy Credits
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Slippage Setting -->
+            <div class="mt-4 flex items-center gap-4">
+                <label class="text-gray-400 text-sm">Slippage:</label>
+                <input type="number" id="slippage" value="0.5" step="0.1" min="0.1" max="5"
+                    class="w-20 bg-gray-800 rounded px-2 py-1 text-sm">
+                <span class="text-gray-500 text-sm">%</span>
+            </div>
+        </div>
+
+        <!-- AI Provider Integration -->
+        <div id="aiSection" class="bg-gray-900 rounded-xl p-6 mb-6 border border-purple-800 hidden">
+            <h2 class="text-xl font-semibold mb-4">🤖 AI Provider Integration</h2>
+            <p class="text-gray-400 text-sm mb-4">Swap yield to USDC and pay for AI inference. Works with Venice, Bankr, and other providers.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-2xl">🏛️</span>
+                        <h3 class="font-medium">Venice</h3>
+                    </div>
+                    <p class="text-gray-400 text-xs mb-3">Uncensored AI inference. Pay with USDC via API.</p>
+                    <ol class="text-xs text-gray-400 space-y-1">
+                        <li>1. Swap yield → USDC</li>
+                        <li>2. Get API key at venice.ai</li>
+                        <li>3. Fund with USDC</li>
+                        <li>4. Use in your agent</li>
+                    </ol>
+                </div>
+                
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-2xl">🏦</span>
+                        <h3 class="font-medium">Bankr</h3>
+                    </div>
+                    <p class="text-gray-400 text-xs mb-3">AI agent platform with crypto payments.</p>
+                    <ol class="text-xs text-gray-400 space-y-1">
+                        <li>1. Swap yield → USDC</li>
+                        <li>2. Connect at bankr.ai</li>
+                        <li>3. Deposit USDC</li>
+                        <li>4. Run your agent</li>
+                    </ol>
+                </div>
+                
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-2xl">🔌</span>
+                        <h3 class="font-medium">C402 Standard</h3>
+                    </div>
+                    <p class="text-gray-400 text-xs mb-3">HTTP 402 for agent payments.</p>
+                    <ol class="text-xs text-gray-400 space-y-1">
+                        <li>1. Agent makes request</li>
+                        <li>2. Gets 402 response</li>
+                        <li>3. Pays from treasury</li>
+                        <li>4. Request proceeds</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+
+        <!-- Deposit/Withdraw -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                <h2 class="text-xl font-semibold mb-4">Deposit wstETH</h2>
+                <div class="mb-4">
+                    <label class="block text-gray-400 text-sm mb-2">Amount</label>
+                    <input type="number" id="depositAmount" placeholder="0.0" step="0.001" 
+                        class="w-full bg-gray-800 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button id="depositBtn" class="w-full bg-green-600 hover:bg-green-700 py-3 rounded-lg font-semibold disabled:opacity-50" disabled>
+                    Deposit
+                </button>
+                <p class="text-gray-500 text-xs mt-2">Min: 0.001 wstETH</p>
+            </div>
+
+            <div class="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                <h2 class="text-xl font-semibold mb-4">Withdraw Principal</h2>
+                <div class="mb-4">
+                    <label class="block text-gray-400 text-sm mb-2">Amount</label>
+                    <input type="number" id="withdrawAmount" placeholder="0.0" step="0.001" 
+                        class="w-full bg-gray-800 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <p class="text-yellow-400 text-xs mb-3">⚠️ 7-day timelock. Consider swapping yield instead.</p>
+                <div class="flex gap-2">
+                    <button id="initiateWithdrawBtn" class="flex-1 bg-yellow-600 hover:bg-yellow-700 py-3 rounded-lg font-semibold disabled:opacity-50" disabled>
+                        Initiate
+                    </button>
+                    <button id="completeWithdrawBtn" class="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-lg font-semibold disabled:opacity-50" disabled>
+                        Complete
+                    </button>
+                </div>
+                <p id="withdrawalStatus" class="text-center mt-3 text-gray-400 text-sm"></p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-8 text-gray-500 text-sm">
+            <p>Built for Synthesis Hackathon | Powered by Lido + Uniswap + Base</p>
+            <div class="mt-2 flex justify-center gap-4">
+                <a id="contractLink" href="#" class="text-blue-400 hover:underline">Contract</a>
+                <a href="https://github.com/voltthemolt/lido-agent-suite" class="text-blue-400 hover:underline" target="_blank">GitHub</a>
+                <a href="https://venice.ai" class="text-blue-400 hover:underline" target="_blank">Venice</a>
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-800">
+                <p class="text-gray-400">Built by <span class="text-purple-400 font-semibold">Hermes Agent</span> powered by <span class="text-green-400 font-semibold">GLM-5 Turbo</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Base Mainnet V3
+        const TREASURY_ADDRESS = '0x555895c59C057Bc040dd7995bEe9C8bcB1A7429D';
+        const WSTETH_ADDRESS = '0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452';
+        const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+        const BASE_CHAIN_ID = 8453;
+        
+        const TREASURY_ABI = [
+            "function deposit(uint256 amount, uint256 erc8004Id) external",
+            "function sweepYield() external returns (uint256)",
+            "function swapYieldToETH(uint256 minEthOut) external returns (uint256)",
+            "function swapYieldToUSDC(uint256 minUsdcOut) external returns (uint256)",
+            "function initiateWithdrawal(uint256 amount) external",
+            "function completeWithdrawal() external",
+            "function getTreasuryInfo(address) view returns (uint256,uint256,uint256,uint256,uint256,uint256,uint256,bool)",
+            "function getYieldStats(address) view returns (uint256,uint256,uint256,uint256)",
+            "function getAvailableYield(address) view returns (uint256)",
+            "function getCurrentStEthPerToken() view returns (uint256)"
+        ];
+        
+        const ERC20_ABI = [
+            "function balanceOf(address) view returns (uint256)",
+            "function approve(address, uint256) external returns (bool)",
+            "function decimals() view returns (uint8)"
+        ];
+
+        let provider, signer, treasury, wsteth, usdc, userAddress;
+
+        document.getElementById('connectBtn').addEventListener('click', async () => {
+            if (!window.ethereum) return alert('Install MetaMask');
+            
+            try {
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                
+                const network = await provider.getNetwork();
+                if (network.chainId !== BASE_CHAIN_ID) {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x' + BASE_CHAIN_ID.toString(16) }]
+                    });
+                }
+                
+                await provider.send('eth_requestAccounts', []);
+                signer = provider.getSigner();
+                userAddress = await signer.getAddress();
+                
+                treasury = new ethers.Contract(TREASURY_ADDRESS, TREASURY_ABI, signer);
+                wsteth = new ethers.Contract(WSTETH_ADDRESS, ERC20_ABI, signer);
+                usdc = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, signer);
+                
+                document.getElementById('connectBtn').classList.add('hidden');
+                document.getElementById('walletAddress').textContent = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+                document.getElementById('walletAddress').classList.remove('hidden');
+                document.getElementById('yieldActions').classList.remove('hidden');
+                document.getElementById('aiSection').classList.remove('hidden');
+                
+                document.getElementById('contractLink').href = `https://basescan.org/address/${TREASURY_ADDRESS}`;
+                
+                document.querySelectorAll('button:not(#connectBtn)').forEach(btn => btn.disabled = false);
+                
+                await loadInfo();
+            } catch (err) {
+                console.error(err);
+                alert('Connection failed: ' + err.message);
+            }
+        });
+
+        async function loadInfo() {
+            try {
+                const balance = await wsteth.balanceOf(userAddress);
+                document.getElementById('wstethBalance').textContent = `Wallet: ${parseFloat(ethers.utils.formatEther(balance)).toFixed(4)} wstETH`;
+                document.getElementById('wstethBalance').classList.remove('hidden');
+                
+                const stats = await treasury.getYieldStats(userAddress);
+                document.getElementById('principal').textContent = `${parseFloat(ethers.utils.formatEther(stats[0])).toFixed(4)} wstETH`;
+                document.getElementById('principalSteth').textContent = `≈ ${parseFloat(ethers.utils.formatEther(stats[1])).toFixed(4)} stETH`;
+                document.getElementById('totalYield').textContent = `${parseFloat(ethers.utils.formatEther(stats[2])).toFixed(6)} stETH`;
+                document.getElementById('apy').textContent = `APY: ${(stats[3] / 100).toFixed(2)}%`;
+                
+                const availYield = await treasury.getAvailableYield(userAddress);
+                const yieldAmt = parseFloat(ethers.utils.formatEther(availYield));
+                document.getElementById('yield').textContent = `${yieldAmt.toFixed(6)} wstETH`;
+                document.getElementById('yieldUsd').textContent = `≈ $${(yieldAmt * 2500).toFixed(2)}`;
+                
+                const rate = await treasury.getCurrentStEthPerToken();
+                document.getElementById('currentRate').textContent = parseFloat(ethers.utils.formatEther(rate)).toFixed(4);
+            } catch (err) {
+                console.error('Load error:', err);
+            }
+        }
+
+        document.getElementById('depositBtn').addEventListener('click', async () => {
+            const amount = document.getElementById('depositAmount').value;
+            if (!amount || amount <= 0) return alert('Enter valid amount');
+            
+            try {
+                const amountWei = ethers.utils.parseEther(amount);
+                const approveTx = await wsteth.approve(TREASURY_ADDRESS, amountWei);
+                await approveTx.wait();
+                
+                const depositTx = await treasury.deposit(amountWei, 0);
+                await depositTx.wait();
+                
+                alert('Deposited!');
+                document.getElementById('depositAmount').value = '';
+                await loadInfo();
+            } catch (err) {
+                alert('Failed: ' + (err.reason || err.message));
+            }
+        });
+
+        document.getElementById('sweepBtn').addEventListener('click', async () => {
+            try {
+                const tx = await treasury.sweepYield();
+                await tx.wait();
+                alert('Yield swept!');
+                await loadInfo();
+            } catch (err) {
+                alert('Failed: ' + (err.reason || err.message));
+            }
+        });
+
+        document.getElementById('swapEthBtn').addEventListener('click', async () => {
+            const slippage = parseFloat(document.getElementById('slippage').value) || 0.5;
+            try {
+                const yieldAmount = await treasury.getAvailableYield(userAddress);
+                if (yieldAmount.isZero()) return alert('No yield');
+                
+                // Estimate: 1 wstETH ≈ 1.05 ETH
+                const minOut = yieldAmount.mul(100 - slippage).div(100);
+                
+                const tx = await treasury.swapYieldToETH(minOut);
+                await tx.wait();
+                alert('Swapped to ETH!');
+                await loadInfo();
+            } catch (err) {
+                alert('Swap failed: ' + (err.reason || err.message));
+            }
+        });
+
+        document.getElementById('swapUsdcBtn').addEventListener('click', async () => {
+            const slippage = parseFloat(document.getElementById('slippage').value) || 0.5;
+            try {
+                const yieldAmount = await treasury.getAvailableYield(userAddress);
+                if (yieldAmount.isZero()) return alert('No yield');
+                
+                // Estimate: 1 wstETH ≈ 2600 USDC
+                const minOut = yieldAmount.mul(2600 * (100 - slippage)).div(100);
+                
+                const tx = await treasury.swapYieldToUSDC(minOut);
+                await tx.wait();
+                alert('Swapped to USDC! Ready for AI inference.');
+                await loadInfo();
+            } catch (err) {
+                alert('Swap failed: ' + (err.reason || err.message));
+            }
+        });
+
+        document.getElementById('inferenceBtn').addEventListener('click', () => {
+            alert('To buy AI inference:\n\n1. Click "Swap to USDC" above\n2. Visit venice.ai or bankr.ai\n3. Connect your wallet\n4. Deposit USDC for credits\n5. Use API key in your agent');
+        });
+
+        document.getElementById('initiateWithdrawBtn').addEventListener('click', async () => {
+            const amount = document.getElementById('withdrawAmount').value;
+            if (!amount || amount <= 0) return alert('Enter valid amount');
+            
+            try {
+                const tx = await treasury.initiateWithdrawal(ethers.utils.parseEther(amount));
+                await tx.wait();
+                alert('Withdrawal initiated. Return in 7 days.');
+                await loadInfo();
+            } catch (err) {
+                alert('Failed: ' + (err.reason || err.message));
+            }
+        });
+
+        document.getElementById('completeWithdrawBtn').addEventListener('click', async () => {
+            try {
+                const tx = await treasury.completeWithdrawal();
+                await tx.wait();
+                alert('Withdrawal complete!');
+                await loadInfo();
+            } catch (err) {
+                alert('Failed: ' + (err.reason || err.message));
+            }
+        });
+
+        if (window.ethereum) {
+            window.ethereum.on('chainChanged', () => window.location.reload());
+            window.ethereum.on('accountsChanged', () => window.location.reload());
+        }
+    </script>
+</body>
+</html>
