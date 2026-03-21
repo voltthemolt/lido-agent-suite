@@ -7,18 +7,29 @@ A complete toolkit enabling AI agents to hold, manage, and spend wstETH yield wh
 ## Live Deployment
 
 **Base Mainnet:**
+- Contract V3 (USDC Support): [`0x555895c59C057Bc040dd7995bEe9C8bcB1A7429D`](https://basescan.org/address/0x555895c59C057Bc040dd7995bEe9C8bcB1A7429D)
 - Contract V2 (Uniswap): [`0x226AF8855e1B08385962a57f74BB75b240bdCEf6`](https://basescan.org/address/0x226AF8855e1B08385962a57f74BB75b240bdCEf6)
 - Contract V1: [`0x19BaBAAc240CdBCD7D693c92eB4Df9BA9Eb4Fc0e`](https://basescan.org/address/0x19BaBAAc240CdBCD7D693c92eB4Df9BA9Eb4Fc0e)
 - wstETH: [`0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452`](https://basescan.org/token/0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452)
+- USDC: [`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`](https://basescan.org/token/0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913)
 - Frontend: [lido-agent-suite.vercel.app](https://lido-agent-suite.vercel.app)
 
 **Features:**
 - ✅ Deposit wstETH, earn staking yield automatically
 - ✅ Sweep yield to wallet (claim just the interest)
 - ✅ Swap yield to ETH via Uniswap V3 (bypass withdrawal delay)
+- ✅ Swap yield to USDC for AI inference (Venice, Bankr)
 - ✅ Spend yield on allowlisted services
 - ✅ Withdraw principal with 7-day timelock
 - ✅ Real-time yield tracking and APY display
+
+**🏆 Prize Eligibility:**
+| Sponsor | Feature | How We Use It |
+|---------|---------|---------------|
+| **Lido** | wstETH staking | Core yield generation |
+| **Uniswap** | V3 SwapRouter | Instant wstETH → ETH/USDC |
+| **Base** | L2 deployment | Low gas costs ($0.14 vs $80+) |
+| **Venice** | AI inference | USDC payments for uncensored AI |
 
 ## Overview
 
@@ -237,13 +248,15 @@ This project qualifies for multiple Synthesis tracks:
 - [Treasury Lifecycle](docs/treasury-lifecycle.excalidraw) - Flow diagram
 - [Skill File](docs/lido-agent.skill.md) - For Hermes Agent integration
 
-## Deployed Contracts (Base Sepolia)
+## Deployed Contracts (Base Mainnet)
 
 | Contract | Address |
 |----------|---------|
-| AgentTreasury | `0x783E503450eBC4710308ae2140690d04E675BBD3` |
-| MockStETH | `0xCfbE65e9292f169AAbE2f0d935BcE1f100bE5496` |
-| MockWstETH | `0x811cf1De839F88D74f05d170e2dF96e20b8FCD04` |
+| **AgentTreasuryV3** | `0x555895c59C057Bc040dd7995bEe9C8bcB1A7429D` |
+| AgentTreasuryV2 | `0x226AF8855e1B08385962a57f74BB75b240bdCEf6` |
+| wstETH (Base) | `0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452` |
+| USDC (Base) | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
+| Uniswap SwapRouter | `0x2626664c2603336E57B271c5C0b26F421741e481` |
 
 > **Owner:** `0x0b020802af83e7ccbd3b65c818c67fb5775ff7aa`
 
