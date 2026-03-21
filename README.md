@@ -1,8 +1,15 @@
 # Lido Agent Suite
 
-> **Autonomous AI Agents with Sustainable stETH Treasury**
+> **Autonomous AI Agents with Sustainable wstETH Treasury**
 
-A complete toolkit enabling AI agents to hold, manage, and spend stETH yield while keeping principal locked and secure. Built for the [Synthesis Hackathon](https://synthesis.md).
+A complete toolkit enabling AI agents to hold, manage, and spend wstETH yield while keeping principal locked and secure. Built for the [Synthesis Hackathon](https://synthesis.md).
+
+## Live Deployment
+
+**Base Mainnet:**
+- Contract: [`0x19BaBAAc240CdBCD7D693c92eB4Df9BA9Eb4Fc0e`](https://basescan.org/address/0x19BaBAAc240CdBCD7D693c92eB4Df9BA9Eb4Fc0e)
+- wstETH: [`0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452`](https://basescan.org/token/0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452)
+- Frontend: [lido-agent-suite.vercel.app](https://lido-agent-suite.vercel.app)
 
 ## Overview
 

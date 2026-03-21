@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lido Agent Treasury - Base</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                Lido Agent Treasury
+            </h1>
+            <p class="text-gray-400">Sustainable funding for AI agents using wstETH yield on Base</p>
+            <div class="mt-4 inline-block bg-green-900/30 text-green-400 px-4 py-1 rounded-full text-sm">
+                Live on Base Mainnet
+            </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div id="connectSection" class="bg-gray-800 rounded-xl p-6 mb-6">
+            <button id="connectBtn" class="w-full bg-blue-600 hover:bg-blue-700 py-3 px-6 rounded-lg font-semibold transition">
+                Connect Wallet
+            </button>
+            <p id="walletAddress" class="text-center mt-4 text-gray-400 hidden"></p>
+            <p id="wstethBalance" class="text-center mt-2 text-gray-500 text-sm hidden"></p>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="bg-gray-800 rounded-xl p-6">
+                <p class="text-gray-400 text-sm mb-1">Your Principal</p>
+                <p id="principal" class="text-2xl font-bold">0.00 wstETH</p>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-6">
+                <p class="text-gray-400 text-sm mb-1">Available Yield</p>
+                <p id="yield" class="text-2xl font-bold text-green-400">0.00 wstETH</p>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-6">
+                <p class="text-gray-400 text-sm mb-1">Total Yield Spent</p>
+                <p id="spent" class="text-2xl font-bold text-purple-400">0.00 wstETH</p>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Deposit -->
+            <div class="bg-gray-800 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4">Deposit wstETH</h2>
+                <div class="mb-4">
+                    <label class="block text-gray-400 text-sm mb-2">Amount</label>
+                    <input type="number" id="depositAmount" placeholder="0.0" step="0.001" 
+                        class="w-full bg-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button id="depositBtn" class="w-full bg-green-600 hover:bg-green-700 py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    Deposit
+                </button>
+                <p class="text-gray-500 text-xs mt-2">Min deposit: 0.001 wstETH</p>
+            </div>
+
+            <!-- Spend Yield -->
+            <div class="bg-gray-800 rounded-xl p-6">
+                <h2 class="text-xl font-semibold mb-4">Spend Yield</h2>
+                <div class="mb-4">
+                    <label class="block text-gray-400 text-sm mb-2">Recipient (must be allowlisted)</label>
+                    <input type="text" id="spendRecipient" placeholder="0x..." 
+                        class="w-full bg-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-400 text-sm mb-2">Amount (wstETH)</label>
+                    <input type="number" id="spendAmount" placeholder="0.0" step="0.001" 
+                        class="w-full bg-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button id="spendBtn" class="w-full bg-purple-600 hover:bg-purple-700 py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    Spend Yield
+                </button>
+            </div>
+        </div>
+
+        <!-- Withdrawal Section -->
+        <div class="bg-gray-800 rounded-xl p-6 mt-6">
+            <h2 class="text-xl font-semibold mb-4">Withdraw Principal</h2>
+            <div class="mb-4">
+                <label class="block text-gray-400 text-sm mb-2">Amount (wstETH)</label>
+                <input type="number" id="withdrawAmount" placeholder="0.0" step="0.001" 
+                    class="w-full bg-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <p class="text-yellow-400 text-sm mb-4">Note: Withdrawals have a 7-day time lock</p>
+            <div class="flex gap-4">
+                <button id="initiateWithdrawBtn" class="flex-1 bg-yellow-600 hover:bg-yellow-700 py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    Initiate Withdrawal
+                </button>
+                <button id="cancelWithdrawBtn" class="bg-gray-600 hover:bg-gray-700 py-3 px-4 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    Cancel
+                </button>
+                <button id="completeWithdrawBtn" class="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    Complete Withdrawal
+                </button>
+            </div>
+            <p id="withdrawalStatus" class="text-center mt-4 text-gray-400"></p>
+        </div>
+
+        <!-- Allowlist Info -->
+        <div class="bg-gray-800 rounded-xl p-6 mt-6">
+            <h2 class="text-xl font-semibold mb-4">Allowlist Service Providers</h2>
+            <p class="text-gray-400 text-sm mb-2">Only allowlisted addresses can receive yield payments.</p>
+            <div id="allowlistContainer" class="space-y-2">
+                <p class="text-gray-500 text-sm">Connect wallet to see allowlist...</p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-12 text-gray-500 text-sm">
+            <p>Built for Synthesis Hackathon | Powered by Lido</p>
+            <p class="mt-1">Contract: <a id="contractAddress" href="#" class="text-blue-400 hover:underline">-</a></p>
+            <p class="mt-1">Your wallet: <span id="walletDisplay" class="text-gray-400">-</span></p>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - Base Mainnet
+        const TREASURY_ADDRESS = '0x19BaBAAc240CdBCD7D693c92eB4Df9BA9Eb4Fc0e';
+        const WSTETH_ADDRESS = '0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452';
+        const BASE_CHAIN_ID = 8453;
+        
+        // ABIs (minimal)
+        const TREASURY_ABI = [
+            "function deposit(uint256 amount, uint256 erc8004Id) external",
+            "function spendYield(address recipient, uint256 amount, string calldata purpose) external",
+            "function initiateWithdrawal(uint256 amount) external",
+            "function completeWithdrawal() external",
+            "function cancelWithdrawal() external",
+            "function getTreasuryInfo(address agent) external view returns (uint256 principal, uint256 availableYield, uint256 totalYieldSpent, uint256 depositTime, bool exists)",
+            "function getAvailableYield(address agent) external view returns (uint256)",
+            "function isWithdrawalReady(address agent) external view returns (bool)",
+            "function getWithdrawalInfo(address agent) external view returns (uint256 amount, uint256 unlockTime, bool ready)",
+            "function spendingAllowlist(address) external view returns (bool)",
+            "function serviceProviderNames(address) external view returns (string)"
+        ];
+        
+        const WSTETH_ABI = [
+            "function balanceOf(address) view returns (uint256)",
+            "function approve(address, uint256) external returns (bool)",
+            "function allowance(address, address) view returns (uint256)"
+        ];
+
+        let provider, signer, treasury, wsteth, userAddress;
+
+        // Connect wallet
+        document.getElementById('connectBtn').addEventListener('click', async () => {
+            if (!window.ethereum) {
+                alert('Please install MetaMask or another Web3 wallet');
+                return;
+            }
+            
+            try {
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                
+                // Check network
+                const network = await provider.getNetwork();
+                if (network.chainId !== BASE_CHAIN_ID) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: '0x' + BASE_CHAIN_ID.toString(16) }]
+                        });
+                    } catch (switchError) {
+                        alert('Please switch to Base network in your wallet');
+                        return;
+                    }
+                }
+                
+                await provider.send('eth_requestAccounts', []);
+                signer = provider.getSigner();
+                userAddress = await signer.getAddress();
+                
+                treasury = new ethers.Contract(TREASURY_ADDRESS, TREASURY_ABI, signer);
+                wsteth = new ethers.Contract(WSTETH_ADDRESS, WSTETH_ABI, signer);
+                
+                document.getElementById('connectBtn').classList.add('hidden');
+                document.getElementById('walletAddress').textContent = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+                document.getElementById('walletAddress').classList.remove('hidden');
+                document.getElementById('walletDisplay').textContent = userAddress;
+                
+                // Set contract link
+                document.getElementById('contractAddress').href = `https://basescan.org/address/${TREASURY_ADDRESS}`;
+                document.getElementById('contractAddress').textContent = `${TREASURY_ADDRESS.slice(0, 6)}...${TREASURY_ADDRESS.slice(-4)}`;
+                
+                // Enable buttons
+                document.querySelectorAll('button:not(#connectBtn)').forEach(btn => btn.disabled = false);
+                
+                await loadTreasuryInfo();
+            } catch (err) {
+                console.error(err);
+                alert('Failed to connect wallet: ' + err.message);
+            }
+        });
+
+        // Load treasury info
+        async function loadTreasuryInfo() {
+            if (!treasury || !userAddress) return;
+            
+            try {
+                // Get wstETH balance
+                const balance = await wsteth.balanceOf(userAddress);
+                document.getElementById('wstethBalance').textContent = `wstETH Balance: ${parseFloat(ethers.utils.formatEther(balance)).toFixed(4)}`;
+                document.getElementById('wstethBalance').classList.remove('hidden');
+                
+                // Get treasury info
+                const info = await treasury.getTreasuryInfo(userAddress);
+                const principal = ethers.utils.formatEther(info.principal);
+                const availableYield = ethers.utils.formatEther(info.availableYield);
+                const totalSpent = ethers.utils.formatEther(info.totalYieldSpent);
+                
+                document.getElementById('principal').textContent = `${parseFloat(principal).toFixed(4)} wstETH`;
+                document.getElementById('yield').textContent = `${parseFloat(availableYield).toFixed(4)} wstETH`;
+                document.getElementById('spent').textContent = `${parseFloat(totalSpent).toFixed(4)} wstETH`;
+                
+                // Check withdrawal status
+                const withdrawal = await treasury.getWithdrawalInfo(userAddress);
+                if (withdrawal.amount > 0) {
+                    const amount = ethers.utils.formatEther(withdrawal.amount);
+                    const unlockTime = new Date(withdrawal.unlockTime * 1000);
+                    document.getElementById('withdrawalStatus').textContent = 
+                        withdrawal.ready ? `Withdrawal ready: ${parseFloat(amount).toFixed(4)} wstETH` :
+                        `Pending: ${parseFloat(amount).toFixed(4)} wstETH (unlocks ${unlockTime.toLocaleString()})`;
+                } else {
+                    document.getElementById('withdrawalStatus').textContent = 'No pending withdrawal';
+                }
+            } catch (err) {
+                console.error('Failed to load treasury info:', err);
+            }
+        }
+
+        // Deposit
+        document.getElementById('depositBtn').addEventListener('click', async () => {
+            const amount = document.getElementById('depositAmount').value;
+            if (!amount || amount <= 0) return alert('Enter a valid amount');
+            
+            try {
+                const amountWei = ethers.utils.parseEther(amount);
+                
+                // Check balance
+                const balance = await wsteth.balanceOf(userAddress);
+                if (balance.lt(amountWei)) {
+                    return alert('Insufficient wstETH balance. Get wstETH on Base first.');
+                }
+                
+                // Approve wstETH
+                const approveTx = await wsteth.approve(TREASURY_ADDRESS, amountWei);
+                await approveTx.wait();
+                
+                // Deposit
+                const depositTx = await treasury.deposit(amountWei, 0);
+                await depositTx.wait();
+                
+                alert('Deposit successful!');
+                document.getElementById('depositAmount').value = '';
+                await loadTreasuryInfo();
+            } catch (err) {
+                console.error(err);
+                alert('Deposit failed: ' + (err.reason || err.message));
+            }
+        });
+
+        // Spend yield
+        document.getElementById('spendBtn').addEventListener('click', async () => {
+            const recipient = document.getElementById('spendRecipient').value;
+            const amount = document.getElementById('spendAmount').value;
+            
+            if (!ethers.utils.isAddress(recipient)) return alert('Invalid recipient address');
+            if (!amount || amount <= 0) return alert('Enter a valid amount');
+            
+            // Check if allowlisted
+            const isAllowlisted = await treasury.spendingAllowlist(recipient);
+            if (!isAllowlisted) {
+                return alert('Recipient is not allowlisted. Only approved service providers can receive yield.');
+            }
+            
+            try {
+                const amountWei = ethers.utils.parseEther(amount);
+                const tx = await treasury.spendYield(recipient, amountWei, 'Agent payment');
+                await tx.wait();
+                
+                alert('Yield spent successfully!');
+                document.getElementById('spendAmount').value = '';
+                document.getElementById('spendRecipient').value = '';
+                await loadTreasuryInfo();
+            } catch (err) {
+                console.error(err);
+                alert('Spend failed: ' + (err.reason || err.message));
+            }
+        });
+
+        // Initiate withdrawal
+        document.getElementById('initiateWithdrawBtn').addEventListener('click', async () => {
+            const amount = document.getElementById('withdrawAmount').value;
+            if (!amount || amount <= 0) return alert('Enter a valid amount');
+            
+            try {
+                const amountWei = ethers.utils.parseEther(amount);
+                const tx = await treasury.initiateWithdrawal(amountWei);
+                await tx.wait();
+                
+                alert('Withdrawal initiated! Come back in 7 days to complete.');
+                document.getElementById('withdrawAmount').value = '';
+                await loadTreasuryInfo();
+            } catch (err) {
+                console.error(err);
+                alert('Failed to initiate withdrawal: ' + (err.reason || err.message));
+            }
+        });
+
+        // Cancel withdrawal
+        document.getElementById('cancelWithdrawBtn').addEventListener('click', async () => {
+            try {
+                const tx = await treasury.cancelWithdrawal();
+                await tx.wait();
+                
+                alert('Withdrawal cancelled!');
+                await loadTreasuryInfo();
+            } catch (err) {
+                console.error(err);
+                alert('Failed to cancel withdrawal: ' + (err.reason || err.message));
+            }
+        });
+
+        // Complete withdrawal
+        document.getElementById('completeWithdrawBtn').addEventListener('click', async () => {
+            try {
+                const tx = await treasury.completeWithdrawal();
+                await tx.wait();
+                
+                alert('Withdrawal completed! wstETH sent to your wallet.');
+                await loadTreasuryInfo();
+            } catch (err) {
+                console.error(err);
+                alert('Failed to complete withdrawal: ' + (err.reason || err.message));
+            }
+        });
+
+        // Refresh on block
+        if (window.ethereum) {
+            window.ethereum.on('chainChanged', () => window.location.reload());
+            window.ethereum.on('accountsChanged', () => window.location.reload());
+        }
+    </script>
+</body>
+</html>
