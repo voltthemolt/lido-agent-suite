@@ -16,7 +16,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError, } from '@modelcontextprotocol/sdk/types.js';
-import { createPublicClient, http, formatEther, parseEther } from 'viem';
+import { createPublicClient, http, formatEther, parseEther, encodeFunctionData } from 'viem';
 import { base, mainnet } from 'viem/chains';
 // ============ Configuration ============
 const LIDO_CONTRACTS = {
@@ -37,7 +37,7 @@ const UNISWAP_CONTRACTS = {
 const POOL_FEE = 3000;
 // Uniswap Developer Platform API
 const UNISWAP_API_KEY = process.env.UNISWAP_API_KEY || 'CQlhRign_d5zFkm__YqTMzFnjf-bgS15opC3Ntx_0Ik';
-const UNISWAP_API_BASE = 'https://api.uniswap.org/v2';
+const UNISWAP_API_BASE = 'https://trade-api.gateway.uniswap.org/v1';
 // ============ ABIs ============
 const STETH_ABI = [
     {
@@ -187,14 +187,18 @@ async function uniswapApiQuote(params) {
         headers: {
             'Content-Type': 'application/json',
             'x-api-key': UNISWAP_API_KEY,
+            'x-universal-router-version': '2.0',
         },
         body: JSON.stringify({
             tokenIn: params.tokenIn,
             tokenOut: params.tokenOut,
+            tokenInChainId: params.chainId,
+            tokenOutChainId: params.chainId,
             amount: params.amount,
             type: params.type,
-            chainId: params.chainId,
-            slippage: 0.5,
+            swapper: params.swapper || '0x0000000000000000000000000000000000000001',
+            autoSlippage: 'DEFAULT',
+            routingPreference: 'BEST_PRICE',
         }),
     });
     if (!resp.ok) {
@@ -861,20 +865,21 @@ Note: Recipient must be allowlisted.`,
                         chainId: 8453, // Base
                         type: 'EXACT_INPUT',
                     });
-                    const quoteRawOutput = (quote.quote ?? quote.quoteDecimals ?? 'N/A').toString();
-                    const quotePriceImpact = quote.priceImpact != null ? `${(Number(quote.priceImpact) * 100).toFixed(4)}%` : 'N/A';
-                    const quoteGasEstimate = quote.gasUseEstimate || quote.gasFee || 'N/A';
-                    const quoteRouteSummary = quote.route
-                        ? quote.route
-                            .map((path) => path.map((hop) => `${hop.tokenIn?.symbol || '?'} -> ${hop.tokenOut?.symbol || '?'} (fee: ${hop.fee || '?'})`).join(' -> ')).join(' | ')
+                    const qd = quote.quote || {};
+                    const quoteOutputAmt = qd.output?.amount || '0';
+                    const quotePriceImpact = qd.priceImpact != null ? `${qd.priceImpact}%` : 'N/A';
+                    const quoteGasFeeUsd = qd.gasFeeUSD || 'N/A';
+                    const quoteSlippage = qd.slippage != null ? `${qd.slippage}%` : 'N/A';
+                    const quoteRouteSummary = qd.route
+                        ? qd.route
+                            .map((path) => path.map((hop) => `${hop.tokenIn?.symbol || '?'} -> ${hop.tokenOut?.symbol || '?'} (${(Number(hop.fee || 0) / 10000).toFixed(2)}%)`).join(' -> ')).join(' | ')
                         : 'wstETH -> WETH via Uniswap V3';
-                    // Format output - handle both raw wei and decimal strings
                     let quoteFormattedOutput;
                     try {
-                        quoteFormattedOutput = formatEther(BigInt(quoteRawOutput)) + ' ETH';
+                        quoteFormattedOutput = formatEther(BigInt(quoteOutputAmt)) + ' ETH';
                     }
                     catch {
-                        quoteFormattedOutput = quoteRawOutput + ' ETH';
+                        quoteFormattedOutput = quoteOutputAmt + ' ETH';
                     }
                     return {
                         content: [
@@ -884,7 +889,8 @@ Note: Recipient must be allowlisted.`,
 - Input: ${args.amount} wstETH
 - Expected Output: ${quoteFormattedOutput}
 - Price Impact: ${quotePriceImpact}
-- Gas Estimate: ${quoteGasEstimate}
+- Slippage: ${quoteSlippage}
+- Gas Fee: $${quoteGasFeeUsd}
 - Route: ${quoteRouteSummary}
 - Chain: Base (8453)
 
@@ -1004,38 +1010,251 @@ Steps to execute:
                     chainId: 8453, // Base
                     type: 'EXACT_INPUT',
                 });
-                const uniRawOutput = (uniQuote.quote ?? uniQuote.quoteDecimals ?? 'N/A').toString();
-                const uniPriceImpact = uniQuote.priceImpact != null ? `${(Number(uniQuote.priceImpact) * 100).toFixed(4)}%` : 'N/A';
-                const uniGasEstimate = uniQuote.gasUseEstimate || uniQuote.gasFee || 'N/A';
-                const uniRouteSummary = uniQuote.route
-                    ? uniQuote.route
-                        .map((path) => path.map((hop) => `${hop.tokenIn?.symbol || hop.tokenIn?.address || '?'} -> ${hop.tokenOut?.symbol || hop.tokenOut?.address || '?'} (fee: ${hop.fee || '?'})`).join(' -> ')).join(' | ')
+                // Parse the Uniswap Trading API response structure
+                const q = uniQuote.quote || {};
+                const outputAmount = q.output?.amount || '0';
+                const priceImpact = q.priceImpact != null ? `${q.priceImpact}%` : 'N/A';
+                const gasFeeUsd = q.gasFeeUSD || 'N/A';
+                const gasEstimate = q.gasUseEstimate || 'N/A';
+                const slippage = q.slippage != null ? `${q.slippage}%` : 'N/A';
+                const routeInfo = q.route
+                    ? q.route
+                        .map((path) => path.map((hop) => `${hop.tokenIn?.symbol || '?'} -> ${hop.tokenOut?.symbol || '?'} (${(Number(hop.fee || 0) / 10000).toFixed(2)}%)`).join(' -> ')).join(' | ')
                     : `${resolvedTokenIn} -> ${resolvedTokenOut}`;
-                // Format output
-                let uniFormattedOutput;
+                let formattedOutput;
                 try {
-                    uniFormattedOutput = formatEther(BigInt(uniRawOutput));
+                    formattedOutput = formatEther(BigInt(outputAmount));
                 }
                 catch {
-                    uniFormattedOutput = uniRawOutput;
+                    formattedOutput = outputAmount;
                 }
                 return {
                     content: [
                         {
                             type: 'text',
                             text: `Uniswap Quote (Base):
-- Token In: ${resolvedTokenIn}
-- Token Out: ${resolvedTokenOut}
-- Input Amount: ${humanAmount}
-- Expected Output: ${uniFormattedOutput}
-- Price Impact: ${uniPriceImpact}
-- Gas Estimate: ${uniGasEstimate}
-- Route: ${uniRouteSummary}
+- Input: ${humanAmount} ${q.input?.token || resolvedTokenIn}
+- Output: ${formattedOutput} ${q.output?.token || resolvedTokenOut}
+- Price Impact: ${priceImpact}
+- Slippage: ${slippage}
+- Gas Fee: $${gasFeeUsd} (${gasEstimate} gas units)
+- Route: ${routeInfo}
 - Chain: Base (8453)
 
 Quote sourced from Uniswap Developer Platform API.`,
                         },
                     ],
+                };
+            }
+            // ============ x402 Payment Flow ============
+            case 'x402_discover': {
+                if (!args)
+                    throw new McpError(ErrorCode.InvalidRequest, 'Missing arguments');
+                const discoverUrl = args.url;
+                try {
+                    const resp = await fetch(discoverUrl);
+                    if (resp.status === 402) {
+                        const body = await resp.json();
+                        const payment = body.x402?.payment || body.payment || body;
+                        return {
+                            content: [{
+                                    type: 'text',
+                                    text: `x402 Payment Required:
+- URL: ${discoverUrl}
+- Amount: ${payment.amount ? formatEther(BigInt(payment.amount)) : 'N/A'} ${payment.token ? 'wstETH' : ''}
+- Token: ${payment.token || 'N/A'}
+- Recipient: ${payment.recipient || 'N/A'}
+- Chain: ${payment.chainId || 'N/A'}
+- Description: ${payment.description || 'N/A'}
+
+Use x402_pay to generate a payment transaction, then x402_complete to access the resource.`,
+                                }],
+                        };
+                    }
+                    else {
+                        const data = await resp.text();
+                        return {
+                            content: [{
+                                    type: 'text',
+                                    text: `URL returned ${resp.status} (no payment required):\n${data.substring(0, 500)}`,
+                                }],
+                        };
+                    }
+                }
+                catch (fetchErr) {
+                    throw new McpError(ErrorCode.InternalError, `Failed to reach ${discoverUrl}: ${fetchErr instanceof Error ? fetchErr.message : 'Unknown error'}`);
+                }
+            }
+            case 'x402_pay': {
+                if (!args)
+                    throw new McpError(ErrorCode.InvalidRequest, 'Missing arguments');
+                const payAmount = args.amount;
+                const payToken = args.token;
+                const payRecipient = args.recipient;
+                // Generate transaction data using the treasury spendYield or direct transfer
+                const txData = encodeFunctionData({
+                    abi: ERC20_TRANSFER_ABI,
+                    functionName: 'transfer',
+                    args: [payRecipient, BigInt(payAmount)],
+                });
+                return {
+                    content: [{
+                            type: 'text',
+                            text: `x402 Payment Transaction:
+- To: ${payToken} (wstETH)
+- Function: transfer(${payRecipient}, ${payAmount})
+- Data: ${txData}
+- Amount: ${formatEther(BigInt(payAmount))} wstETH
+
+Sign and broadcast this transaction, then use x402_complete with the tx hash.`,
+                        }],
+                };
+            }
+            case 'x402_complete': {
+                if (!args)
+                    throw new McpError(ErrorCode.InvalidRequest, 'Missing arguments');
+                const completeUrl = args.url;
+                const txHash = args.txHash;
+                try {
+                    const resp = await fetch(completeUrl, {
+                        headers: { 'X-Payment-TxHash': txHash },
+                    });
+                    const data = await resp.text();
+                    return {
+                        content: [{
+                                type: 'text',
+                                text: `x402 Response (${resp.status}):\n${data}`,
+                            }],
+                    };
+                }
+                catch (fetchErr) {
+                    throw new McpError(ErrorCode.InternalError, `Failed to complete x402: ${fetchErr instanceof Error ? fetchErr.message : 'Unknown error'}`);
+                }
+            }
+            // ============ Lido Governance ============
+            case 'lido_get_proposals': {
+                const state = args?.state || 'all';
+                const limit = Math.min(Number(args?.limit) || 5, 20);
+                const whereClause = state === 'all'
+                    ? `space_in: ["${LIDO_SNAPSHOT_SPACE}"]`
+                    : `space_in: ["${LIDO_SNAPSHOT_SPACE}"], state: "${state}"`;
+                const data = await snapshotQuery(`{
+          proposals(first: ${limit}, skip: 0, where: { ${whereClause} }, orderBy: "created", orderDirection: desc) {
+            id title state start end choices scores scores_total votes author
+          }
+        }`);
+                const proposals = data.proposals || [];
+                if (proposals.length === 0) {
+                    return { content: [{ type: 'text', text: 'No Lido governance proposals found.' }] };
+                }
+                const formatted = proposals.map((p, i) => {
+                    const startDate = new Date(p.start * 1000).toISOString().split('T')[0];
+                    const endDate = new Date(p.end * 1000).toISOString().split('T')[0];
+                    const topChoice = p.scores && p.choices
+                        ? p.choices[p.scores.indexOf(Math.max(...p.scores))]
+                        : 'N/A';
+                    return `${i + 1}. [${p.state.toUpperCase()}] ${p.title}
+   Period: ${startDate} to ${endDate} | Votes: ${p.votes} | Leading: ${topChoice}
+   ID: ${p.id}`;
+                }).join('\n\n');
+                return { content: [{ type: 'text', text: `Lido Governance Proposals:\n\n${formatted}` }] };
+            }
+            case 'lido_get_proposal_details': {
+                if (!args)
+                    throw new McpError(ErrorCode.InvalidRequest, 'Missing arguments');
+                const proposalId = args.id;
+                const data = await snapshotQuery(`{
+          proposal(id: "${proposalId}") {
+            id title body state start end choices scores scores_total votes author link discussion
+          }
+        }`);
+                const p = data.proposal;
+                if (!p) {
+                    return { content: [{ type: 'text', text: `Proposal ${proposalId} not found.` }] };
+                }
+                const startDate = new Date(p.start * 1000).toISOString();
+                const endDate = new Date(p.end * 1000).toISOString();
+                const choiceResults = p.choices?.map((c, i) => `  ${c}: ${p.scores?.[i]?.toFixed(2) || '0'} votes`).join('\n') || 'N/A';
+                // Truncate body to avoid huge responses
+                const body = p.body?.substring(0, 1000) || 'No description';
+                return {
+                    content: [{
+                            type: 'text',
+                            text: `Proposal: ${p.title}
+State: ${p.state.toUpperCase()}
+Author: ${p.author}
+Period: ${startDate} to ${endDate}
+Total Votes: ${p.votes}
+
+Results:
+${choiceResults}
+
+Description:
+${body}${p.body?.length > 1000 ? '\n...(truncated)' : ''}
+
+Link: ${p.link || 'N/A'}
+Discussion: ${p.discussion || 'N/A'}`,
+                        }],
+                };
+            }
+            case 'lido_get_voting_power': {
+                if (!args)
+                    throw new McpError(ErrorCode.InvalidRequest, 'Missing arguments');
+                const voterAddress = args.address;
+                const ldoBalance = await mainnetClient.readContract({
+                    address: LIDO_CONTRACTS.LDO,
+                    abi: LDO_ABI,
+                    functionName: 'balanceOf',
+                    args: [voterAddress],
+                });
+                return {
+                    content: [{
+                            type: 'text',
+                            text: `Voting Power for ${voterAddress}:
+- LDO Balance: ${formatEther(ldoBalance)} LDO
+- Network: Ethereum Mainnet
+
+Note: Voting power in Lido Snapshot governance is based on LDO token holdings.`,
+                        }],
+                };
+            }
+            case 'lido_protocol_health': {
+                const [totalPooled, totalShares, proposalsData] = await Promise.all([
+                    mainnetClient.readContract({
+                        address: LIDO_CONTRACTS.stETH,
+                        abi: STETH_ABI,
+                        functionName: 'getTotalPooledEther',
+                    }).catch(() => null),
+                    mainnetClient.readContract({
+                        address: LIDO_CONTRACTS.stETH,
+                        abi: STETH_ABI,
+                        functionName: 'getTotalShares',
+                    }).catch(() => null),
+                    snapshotQuery(`{
+            proposals(first: 5, where: { space_in: ["${LIDO_SNAPSHOT_SPACE}"], state: "active" }) {
+              id title state
+            }
+          }`).catch(() => ({ proposals: [] })),
+                ]);
+                const tvl = totalPooled ? formatEther(totalPooled) : 'N/A';
+                const shares = totalShares ? formatEther(totalShares) : 'N/A';
+                const rate = (totalPooled && totalShares)
+                    ? (Number(totalPooled) / Number(totalShares)).toFixed(6)
+                    : 'N/A';
+                const activeProposals = proposalsData.proposals || [];
+                return {
+                    content: [{
+                            type: 'text',
+                            text: `Lido Protocol Health Report:
+- Total Value Locked: ${tvl} ETH
+- Total Shares: ${shares}
+- stETH/Share Rate: ${rate}
+- Approximate APR: ~3.0-3.5%
+- Active Governance Proposals: ${activeProposals.length}
+${activeProposals.map((p) => `  - ${p.title}`).join('\n')}
+
+Data sourced from Ethereum mainnet and Snapshot.`,
+                        }],
                 };
             }
             default:
