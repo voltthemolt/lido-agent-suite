@@ -470,6 +470,47 @@
         .gap-2 { gap: 8px; }
         .flex { display: flex; }
 
+        /* Input with max button */
+        .input-with-max {
+            position: relative;
+        }
+
+        .input-with-max input {
+            padding-right: 54px;
+        }
+
+        .btn-max {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 200ms ease;
+        }
+
+        .btn-max:hover {
+            background: var(--accent-hover);
+        }
+
+        .balance-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .balance-value {
+            color: var(--text-tertiary);
+            font-size: 11px;
+        }
+
         /* Withdrawal status */
         .withdrawal-status {
             text-align: center;
@@ -584,7 +625,7 @@
                     </ol>
                 </div>
                 <div class="provider-card">
-                    <h3>C402 Standard</h3>
+                    <h3>x402 Standard</h3>
                     <p>HTTP 402 for agent payments</p>
                     <ol>
                         <li>1. Agent makes request</li>
@@ -615,8 +656,14 @@
             <div class="card">
                 <p class="card-title">Deposit wstETH</p>
                 <div class="input-group">
-                    <label>Amount</label>
-                    <input type="number" id="depositAmount" placeholder="0.0" step="0.001">
+                    <label class="balance-label">
+                        Amount
+                        <span id="depositBalance" class="balance-value"></span>
+                    </label>
+                    <div class="input-with-max">
+                        <input type="number" id="depositAmount" placeholder="0.0" step="0.001">
+                        <button class="btn-max" onclick="document.getElementById('depositAmount').value = depositMaxVal">MAX</button>
+                    </div>
                 </div>
                 <button id="depositBtn" class="btn btn-success" disabled>Deposit</button>
                 <p class="text-xs mt-2" style="color:var(--text-tertiary)">Min: 0.001 wstETH</p>
@@ -627,8 +674,14 @@
             <p class="card-title">Withdraw Principal</p>
             <p class="card-subtitle text-warning">7-day timelock applies. Consider swapping yield instead.</p>
             <div class="input-group">
-                <label>Amount</label>
-                <input type="number" id="withdrawAmount" placeholder="0.0" step="0.001">
+                <label class="balance-label">
+                    Amount
+                    <span id="withdrawBalance" class="balance-value"></span>
+                </label>
+                <div class="input-with-max">
+                    <input type="number" id="withdrawAmount" placeholder="0.0" step="0.001">
+                    <button class="btn-max" onclick="document.getElementById('withdrawAmount').value = withdrawMaxVal">MAX</button>
+                </div>
             </div>
             <div class="flex gap-2">
                 <button id="initiateWithdrawBtn" class="btn btn-warning" style="flex:1" disabled>Initiate</button>
@@ -680,6 +733,8 @@
         ];
 
         let provider, signer, treasury, wsteth, usdc, userAddress;
+        let depositMaxVal = '0';
+        let withdrawMaxVal = '0';
         let wstethUsdPrice = null;
         let lidoApr = null;
 
@@ -768,12 +823,18 @@
         async function loadInfo() {
             try {
                 const balance = await wsteth.balanceOf(userAddress);
-                document.getElementById('wstethBalance').textContent = `Wallet: ${parseFloat(ethers.utils.formatEther(balance)).toFixed(6)} wstETH`;
+                const balFormatted = ethers.utils.formatEther(balance);
+                depositMaxVal = balFormatted;
+                document.getElementById('wstethBalance').textContent = `Wallet: ${parseFloat(balFormatted).toFixed(6)} wstETH`;
+                document.getElementById('depositBalance').textContent = `Balance: ${parseFloat(balFormatted).toFixed(6)}`;
 
                 const stats = await treasury.getYieldStats(userAddress);
-                document.getElementById('principal').textContent = smartFormat(parseFloat(ethers.utils.formatEther(stats[0])), 4, 10);
+                const principalFormatted = ethers.utils.formatEther(stats[0]);
+                withdrawMaxVal = principalFormatted;
+                document.getElementById('principal').textContent = smartFormat(parseFloat(principalFormatted), 4, 10);
                 document.getElementById('principalSteth').textContent = `${smartFormat(parseFloat(ethers.utils.formatEther(stats[1])), 4, 10)} stETH value`;
                 document.getElementById('totalYield').textContent = smartFormat(parseFloat(ethers.utils.formatEther(stats[2])), 6, 12);
+                document.getElementById('withdrawBalance').textContent = `Principal: ${smartFormat(parseFloat(principalFormatted), 4, 10)}`;
                 // Use Lido's published APR instead of on-chain calc (which is
                 // distorted when rate oracle is updated in large steps)
                 const displayApr = lidoApr != null ? lidoApr : (stats[3] / 100);
