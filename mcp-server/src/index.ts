@@ -187,6 +187,19 @@ const AGENT_TREASURY_ABI = [
   },
 ] as const;
 
+const TREASURY_EVENTS_ABI = [
+  { type: 'event', name: 'Deposited', inputs: [{ name: 'agent', type: 'address', indexed: true }, { name: 'wstETHAmount', type: 'uint256', indexed: false }, { name: 'stEthPerToken', type: 'uint256', indexed: false }] },
+  { type: 'event', name: 'YieldClaimed', inputs: [{ name: 'agent', type: 'address', indexed: true }, { name: 'amount', type: 'uint256', indexed: false }] },
+  { type: 'event', name: 'YieldSwappedToETH', inputs: [{ name: 'agent', type: 'address', indexed: true }, { name: 'wstETHAmount', type: 'uint256', indexed: false }, { name: 'ethAmount', type: 'uint256', indexed: false }] },
+  { type: 'event', name: 'YieldSwappedToUSDC', inputs: [{ name: 'agent', type: 'address', indexed: true }, { name: 'wstETHAmount', type: 'uint256', indexed: false }, { name: 'usdcAmount', type: 'uint256', indexed: false }] },
+  { type: 'event', name: 'YieldSpent', inputs: [{ name: 'agent', type: 'address', indexed: true }, { name: 'recipient', type: 'address', indexed: true }, { name: 'amount', type: 'uint256', indexed: false }, { name: 'purpose', type: 'string', indexed: false }] },
+  { type: 'event', name: 'AgentRegistered', inputs: [{ name: 'agent', type: 'address', indexed: true }, { name: 'erc8004Id', type: 'uint256', indexed: false }] },
+] as const;
+
+const AGENT_ERC8004_ABI = [
+  { name: 'agentERC8004Id', inputs: [{ name: '', type: 'address' }], outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' },
+] as const;
+
 const ERC20_TRANSFER_ABI = [
   {
     name: 'transfer',
@@ -634,6 +647,29 @@ const tools = [
         },
       },
       required: ['url', 'txHash'],
+    },
+  },
+  // ERC-8004 Agent Identity & Receipts
+  {
+    name: 'agent_get_identity',
+    description: 'Look up an agent\'s ERC-8004 identity ID from the treasury contract',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agent: { type: 'string', description: 'Agent address' },
+      },
+      required: ['agent'],
+    },
+  },
+  {
+    name: 'agent_get_receipts',
+    description: 'Get on-chain action receipts for an agent - all deposits, yield claims, swaps, and spending events from the treasury. Provides verifiable proof of agent actions (ERC-8004 compatible).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agent: { type: 'string', description: 'Agent address' },
+      },
+      required: ['agent'],
     },
   },
 ];
@@ -1355,6 +1391,110 @@ Note: Voting power in Lido Snapshot governance is based on LDO token holdings.`,
 ${activeProposals.map((p: any) => `  - ${p.title}`).join('\n')}
 
 Data sourced from Ethereum mainnet and Snapshot.`,
+          }],
+        };
+      }
+
+      // ============ ERC-8004 Agent Identity & Receipts ============
+
+      case 'agent_get_identity': {
+        if (!args) throw new McpError(ErrorCode.InvalidRequest, 'Missing arguments');
+        const idAgent = args.agent as `0x${string}`;
+
+        const erc8004Id = await client.readContract({
+          address: LIDO_CONTRACTS.agentTreasury as `0x${string}`,
+          abi: AGENT_ERC8004_ABI,
+          functionName: 'agentERC8004Id',
+          args: [idAgent],
+        });
+
+        const treasuryInfo = await client.readContract({
+          address: LIDO_CONTRACTS.agentTreasury as `0x${string}`,
+          abi: AGENT_TREASURY_ABI,
+          functionName: 'getTreasuryInfo',
+          args: [idAgent],
+        }) as [bigint, bigint, bigint, bigint, bigint, bigint, bigint, boolean];
+
+        return {
+          content: [{
+            type: 'text',
+            text: `Agent Identity (ERC-8004):
+- Address: ${idAgent}
+- ERC-8004 ID: ${(erc8004Id as bigint) > 0n ? (erc8004Id as bigint).toString() : 'Not registered'}
+- Treasury Active: ${treasuryInfo[7] ? 'Yes' : 'No'}
+- Principal: ${treasuryInfo[7] ? formatEther(treasuryInfo[0]) + ' wstETH' : 'N/A'}
+- Contract: ${LIDO_CONTRACTS.agentTreasury}
+- Chain: Base (8453)`,
+          }],
+        };
+      }
+
+      case 'agent_get_receipts': {
+        if (!args) throw new McpError(ErrorCode.InvalidRequest, 'Missing arguments');
+        const receiptAgent = args.agent as `0x${string}`;
+        const treasuryAddr = LIDO_CONTRACTS.agentTreasury as `0x${string}`;
+
+        // Query treasury events from deployment block (public RPC has 10k block limit)
+        const DEPLOY_BLOCK = 43657600n;
+        const currentBlock = await client.getBlockNumber();
+        // Scan in chunks of 9999 blocks
+        let allLogs: any[] = [];
+        for (let from = DEPLOY_BLOCK; from <= currentBlock; from += 9999n) {
+          const to = (from + 9998n) > currentBlock ? currentBlock : (from + 9998n);
+          const chunk = await client.getLogs({
+            address: treasuryAddr,
+            events: TREASURY_EVENTS_ABI,
+            fromBlock: from,
+            toBlock: to,
+          });
+          allLogs = allLogs.concat(chunk);
+        }
+        const logs = allLogs.filter(l => {
+          const a = l.args as any;
+          return a?.agent?.toLowerCase() === receiptAgent.toLowerCase();
+        });
+
+        if (logs.length === 0) {
+          return { content: [{ type: 'text', text: `No on-chain receipts found for ${receiptAgent}` }] };
+        }
+
+        const receipts = logs.map((log, i) => {
+          const name = log.eventName;
+          const block = log.blockNumber?.toString() || '?';
+          const tx = log.transactionHash || '?';
+          const a = log.args as any;
+
+          let detail = '';
+          switch (name) {
+            case 'Deposited':
+              detail = `Deposited ${formatEther(a.wstETHAmount || 0n)} wstETH (rate: ${formatEther(a.stEthPerToken || 0n)})`;
+              break;
+            case 'YieldClaimed':
+              detail = `Claimed ${formatEther(a.amount || 0n)} wstETH yield`;
+              break;
+            case 'YieldSwappedToETH':
+              detail = `Swapped ${formatEther(a.wstETHAmount || 0n)} wstETH → ${formatEther(a.ethAmount || 0n)} ETH`;
+              break;
+            case 'YieldSwappedToUSDC':
+              detail = `Swapped ${formatEther(a.wstETHAmount || 0n)} wstETH → ${a.usdcAmount?.toString() || '0'} USDC`;
+              break;
+            case 'YieldSpent':
+              detail = `Spent ${formatEther(a.amount || 0n)} wstETH to ${a.recipient} for "${a.purpose}"`;
+              break;
+            case 'AgentRegistered':
+              detail = `Registered ERC-8004 ID: ${a.erc8004Id?.toString() || '?'}`;
+              break;
+            default:
+              detail = name || 'Unknown event';
+          }
+
+          return `${i + 1}. [Block ${block}] ${detail}\n   Tx: ${tx}`;
+        });
+
+        return {
+          content: [{
+            type: 'text',
+            text: `On-Chain Receipts for ${receiptAgent} (${logs.length} actions):\n\n${receipts.join('\n\n')}\n\nAll receipts are verifiable on-chain at ${treasuryAddr} (Base).`,
           }],
         };
       }
