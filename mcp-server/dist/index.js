@@ -11,18 +11,23 @@
  * - Governance actions
  * - Agent Treasury integration
  * - Dry-run simulation support
+ * - Uniswap Developer Platform API integration
  */
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError, } from '@modelcontextprotocol/sdk/types.js';
 import { createPublicClient, http, formatEther, parseEther } from 'viem';
-import { base } from 'viem/chains';
+import { base, mainnet } from 'viem/chains';
 // ============ Configuration ============
 const LIDO_CONTRACTS = {
     stETH: '0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84', // Reference only, not directly used on Base
     wstETH: '0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452',
     agentTreasury: '0x4e0acb29d642982403a3bd6a40181a828f2265a0',
+    LDO: '0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32', // LDO governance token (Ethereum mainnet)
 };
+// Snapshot governance API
+const SNAPSHOT_GRAPHQL_URL = 'https://hub.snapshot.org/graphql';
+const LIDO_SNAPSHOT_SPACE = 'lido-snapshot.eth';
 // Uniswap V3 contracts (Base mainnet)
 const UNISWAP_CONTRACTS = {
     // SwapRouter02 on Base
@@ -30,6 +35,9 @@ const UNISWAP_CONTRACTS = {
 };
 // Pool fee for stETH/ETH (0.3%)
 const POOL_FEE = 3000;
+// Uniswap Developer Platform API
+const UNISWAP_API_KEY = process.env.UNISWAP_API_KEY || 'CQlhRign_d5zFkm__YqTMzFnjf-bgS15opC3Ntx_0Ik';
+const UNISWAP_API_BASE = 'https://api.uniswap.org/v2';
 // ============ ABIs ============
 const STETH_ABI = [
     {
@@ -97,6 +105,22 @@ const WSTETH_ABI = [
         stateMutability: 'view',
         type: 'function',
     },
+    {
+        name: 'stEthPerToken',
+        inputs: [],
+        outputs: [{ type: 'uint256' }],
+        stateMutability: 'view',
+        type: 'function',
+    },
+];
+const LDO_ABI = [
+    {
+        name: 'balanceOf',
+        inputs: [{ name: 'account', type: 'address' }],
+        outputs: [{ type: 'uint256' }],
+        stateMutability: 'view',
+        type: 'function',
+    },
 ];
 const AGENT_TREASURY_ABI = [
     {
@@ -144,6 +168,41 @@ const AGENT_TREASURY_ABI = [
         type: 'function',
     },
 ];
+const ERC20_TRANSFER_ABI = [
+    {
+        name: 'transfer',
+        inputs: [
+            { name: 'to', type: 'address' },
+            { name: 'amount', type: 'uint256' },
+        ],
+        outputs: [{ type: 'bool' }],
+        stateMutability: 'nonpayable',
+        type: 'function',
+    },
+];
+// ============ Uniswap API Helper ============
+async function uniswapApiQuote(params) {
+    const resp = await fetch(`${UNISWAP_API_BASE}/quote`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': UNISWAP_API_KEY,
+        },
+        body: JSON.stringify({
+            tokenIn: params.tokenIn,
+            tokenOut: params.tokenOut,
+            amount: params.amount,
+            type: params.type,
+            chainId: params.chainId,
+            slippage: 0.5,
+        }),
+    });
+    if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Uniswap API error ${resp.status}: ${text}`);
+    }
+    return resp.json();
+}
 // ============ Server Setup ============
 const server = new Server({
     name: 'lido-mcp-server',
@@ -153,11 +212,33 @@ const server = new Server({
         tools: {},
     },
 });
-// Create viem client
+// Create viem clients
 const client = createPublicClient({
     chain: base,
     transport: http(process.env.BASE_RPC_URL || process.env.ETHEREUM_RPC_URL || 'https://mainnet.base.org'),
 });
+// Mainnet client for governance queries (LDO token, stETH on L1)
+const mainnetClient = createPublicClient({
+    chain: mainnet,
+    transport: http(process.env.ETHEREUM_RPC_URL || 'https://ethereum.publicnode.com'),
+});
+// ============ Snapshot GraphQL Helper ============
+async function snapshotQuery(query) {
+    const resp = await fetch(SNAPSHOT_GRAPHQL_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+    });
+    if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Snapshot API error ${resp.status}: ${text}`);
+    }
+    const json = await resp.json();
+    if (json.errors) {
+        throw new Error(`Snapshot GraphQL error: ${JSON.stringify(json.errors)}`);
+    }
+    return json.data;
+}
 // ============ Tool Definitions ============
 const tools = [
     // Balance queries
@@ -365,7 +446,7 @@ const tools = [
     },
     {
         name: 'get_swap_quote',
-        description: 'Get a quote for swapping stETH to ETH without generating a transaction.',
+        description: 'Get a quote for swapping stETH to ETH without generating a transaction. Uses the Uniswap Developer Platform API for real-time pricing.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -377,6 +458,141 @@ const tools = [
             required: ['amount'],
         },
     },
+    {
+        name: 'uniswap_get_quote',
+        description: 'Get a real-time swap quote from Uniswap Developer Platform API on Base',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                tokenIn: {
+                    type: 'string',
+                    description: 'Input token address (use "ETH" for native)',
+                },
+                tokenOut: {
+                    type: 'string',
+                    description: 'Output token address',
+                },
+                amount: {
+                    type: 'string',
+                    description: 'Amount of input token (in human readable, e.g. "1.5")',
+                },
+            },
+            required: ['tokenIn', 'tokenOut', 'amount'],
+        },
+    },
+    // Governance tools
+    {
+        name: 'lido_get_proposals',
+        description: 'Get active and recent Lido governance proposals from Snapshot',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                state: {
+                    type: 'string',
+                    description: 'Filter by proposal state: "active", "closed", "pending", or "all" (default: "all")',
+                },
+                limit: {
+                    type: 'number',
+                    description: 'Number of proposals to return (default: 5, max: 20)',
+                },
+            },
+        },
+    },
+    {
+        name: 'lido_get_proposal_details',
+        description: 'Get full details of a specific Lido governance proposal from Snapshot, including the body text and discussion link',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                proposalId: {
+                    type: 'string',
+                    description: 'The Snapshot proposal ID',
+                },
+            },
+            required: ['proposalId'],
+        },
+    },
+    {
+        name: 'lido_get_voting_power',
+        description: 'Get LDO token balance (voting power) for an Ethereum address',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                address: {
+                    type: 'string',
+                    description: 'The Ethereum address to check LDO balance for',
+                },
+            },
+            required: ['address'],
+        },
+    },
+    {
+        name: 'lido_protocol_health',
+        description: 'Get a comprehensive Lido protocol health report including staking APR, TVL, governance activity, and exchange rates',
+        inputSchema: {
+            type: 'object',
+            properties: {},
+        },
+    },
+    // x402 payment protocol tools
+    {
+        name: 'x402_discover',
+        description: 'Probe a URL for x402 payment requirements. Makes a GET request; if the server returns HTTP 402 with an x402 payment descriptor, returns the payment terms. If it returns 200, returns the data directly.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                url: {
+                    type: 'string',
+                    description: 'The URL to probe for x402 payment requirements',
+                },
+            },
+            required: ['url'],
+        },
+    },
+    {
+        name: 'x402_pay',
+        description: 'Build an unsigned transaction to fulfil an x402 payment. If the recipient is the Agent Treasury allowlist, uses spendYield; otherwise returns a direct wstETH transfer.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                amount: {
+                    type: 'string',
+                    description: 'Payment amount in wei (from the x402 descriptor)',
+                },
+                token: {
+                    type: 'string',
+                    description: 'ERC-20 token address (from the x402 descriptor)',
+                },
+                recipient: {
+                    type: 'string',
+                    description: 'Recipient address (from the x402 descriptor)',
+                },
+                purpose: {
+                    type: 'string',
+                    description: 'Human-readable description of the payment purpose',
+                },
+            },
+            required: ['amount', 'token', 'recipient'],
+        },
+    },
+    {
+        name: 'x402_complete',
+        description: 'Complete an x402 payment flow. Re-requests the URL with the X-Payment-TxHash header set to the transaction hash and returns the response data.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                url: {
+                    type: 'string',
+                    description: 'The original URL that returned 402',
+                },
+                txHash: {
+                    type: 'string',
+                    description: 'The transaction hash proving payment',
+                },
+            },
+            required: ['url', 'txHash'],
+        },
+    },
 ];
 // ============ Tool Handlers ============
 server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -385,7 +601,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
     // Ensure args exists for all tools that require it
-    if (!args && name !== 'get_staking_stats') {
+    const noArgTools = ['get_staking_stats', 'lido_get_proposals', 'lido_protocol_health'];
+    if (!args && !noArgTools.includes(name)) {
         throw new McpError(ErrorCode.InvalidRequest, 'Missing arguments');
     }
     try {
@@ -634,53 +851,110 @@ Note: Recipient must be allowlisted.`,
             case 'get_swap_quote': {
                 if (!args)
                     throw new McpError(ErrorCode.InvalidRequest, 'Missing arguments');
-                const amount = parseEther(args.amount);
-                // For quotes, we use a simplified calculation
-                // In production, you'd call the Uniswap Quoter contract
-                // stETH trades at ~1:1 with ETH, with slight discount due to withdrawal queue
-                const stEthPrice = 0.99; // Approximate stETH/ETH ratio
-                const estimatedOutput = Number(args.amount) * stEthPrice;
-                const fee = Number(args.amount) * 0.003; // 0.3% fee
-                const outputAfterFee = estimatedOutput - fee;
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Swap Quote (stETH -> ETH):
+                const quoteAmountWei = parseEther(args.amount);
+                try {
+                    // Use the Uniswap Developer Platform API for a real-time quote
+                    const quote = await uniswapApiQuote({
+                        tokenIn: LIDO_CONTRACTS.wstETH,
+                        tokenOut: '0x4200000000000000000000000000000000000006', // WETH on Base
+                        amount: quoteAmountWei.toString(),
+                        chainId: 8453, // Base
+                        type: 'EXACT_INPUT',
+                    });
+                    const quoteRawOutput = (quote.quote ?? quote.quoteDecimals ?? 'N/A').toString();
+                    const quotePriceImpact = quote.priceImpact != null ? `${(Number(quote.priceImpact) * 100).toFixed(4)}%` : 'N/A';
+                    const quoteGasEstimate = quote.gasUseEstimate || quote.gasFee || 'N/A';
+                    const quoteRouteSummary = quote.route
+                        ? quote.route
+                            .map((path) => path.map((hop) => `${hop.tokenIn?.symbol || '?'} -> ${hop.tokenOut?.symbol || '?'} (fee: ${hop.fee || '?'})`).join(' -> ')).join(' | ')
+                        : 'wstETH -> WETH via Uniswap V3';
+                    // Format output - handle both raw wei and decimal strings
+                    let quoteFormattedOutput;
+                    try {
+                        quoteFormattedOutput = formatEther(BigInt(quoteRawOutput)) + ' ETH';
+                    }
+                    catch {
+                        quoteFormattedOutput = quoteRawOutput + ' ETH';
+                    }
+                    return {
+                        content: [
+                            {
+                                type: 'text',
+                                text: `Swap Quote (wstETH -> ETH) via Uniswap API:
+- Input: ${args.amount} wstETH
+- Expected Output: ${quoteFormattedOutput}
+- Price Impact: ${quotePriceImpact}
+- Gas Estimate: ${quoteGasEstimate}
+- Route: ${quoteRouteSummary}
+- Chain: Base (8453)
+
+Quote sourced from Uniswap Developer Platform API.
+Use swap_steth_to_eth to generate the transaction data.`,
+                            },
+                        ],
+                    };
+                }
+                catch (apiError) {
+                    // Fallback to estimate if API is unavailable
+                    const fallbackPrice = 0.99;
+                    const fallbackOutput = Number(args.amount) * fallbackPrice;
+                    const fallbackFee = Number(args.amount) * 0.003;
+                    const fallbackAfterFee = fallbackOutput - fallbackFee;
+                    return {
+                        content: [
+                            {
+                                type: 'text',
+                                text: `Swap Quote (stETH -> ETH) [Estimated - API unavailable]:
 - Input: ${args.amount} stETH
-- Expected Output: ~${outputAfterFee.toFixed(6)} ETH
-- Fee (0.3%): ~${fee.toFixed(6)} ETH
+- Expected Output: ~${fallbackAfterFee.toFixed(6)} ETH
+- Fee (0.3%): ~${fallbackFee.toFixed(6)} ETH
 - Price Impact: ~0.01% (for small amounts)
 - Route: stETH -> ETH via Uniswap V3 (0.3% pool)
 
-Note: This is an estimate. Actual output depends on pool state at execution time.
-Use swap_steth_to_eth to generate the transaction data.`,
-                        },
-                    ],
-                };
+Note: Uniswap API was unavailable. This is a fallback estimate.
+Error: ${apiError instanceof Error ? apiError.message : 'Unknown error'}`,
+                            },
+                        ],
+                    };
+                }
             }
             case 'swap_steth_to_eth': {
                 if (!args)
                     throw new McpError(ErrorCode.InvalidRequest, 'Missing arguments');
                 const amountIn = parseEther(args.amount);
                 const slippage = Number(args.slippage || '0.5');
-                const recipient = args.recipient || 'SENDER'; // Will be replaced with actual sender
-                // Calculate minimum output with slippage
-                const stEthPrice = 0.99;
-                const estimatedOutput = Number(args.amount) * stEthPrice * (1 - 0.003);
-                const minOutput = estimatedOutput * (1 - slippage / 100);
+                // Try to get a real-time quote from Uniswap API for accurate pricing
+                let swapEstimatedOutput;
+                let apiQuoteInfo = '';
+                try {
+                    const apiQuote = await uniswapApiQuote({
+                        tokenIn: LIDO_CONTRACTS.wstETH,
+                        tokenOut: '0x4200000000000000000000000000000000000006', // WETH on Base
+                        amount: amountIn.toString(),
+                        chainId: 8453,
+                        type: 'EXACT_INPUT',
+                    });
+                    const rawOutput = (apiQuote.quote ?? apiQuote.quoteDecimals ?? '').toString();
+                    if (rawOutput) {
+                        swapEstimatedOutput = Number(formatEther(BigInt(rawOutput)));
+                        const swapPriceImpact = apiQuote.priceImpact != null ? `${(Number(apiQuote.priceImpact) * 100).toFixed(4)}%` : 'N/A';
+                        const swapGas = apiQuote.gasUseEstimate || apiQuote.gasFee || 'N/A';
+                        apiQuoteInfo = `\n\nUniswap API Quote:
+- Expected Output: ${swapEstimatedOutput.toFixed(6)} ETH
+- Price Impact: ${swapPriceImpact}
+- Gas Estimate: ${swapGas}`;
+                    }
+                    else {
+                        swapEstimatedOutput = Number(args.amount) * 0.99 * (1 - 0.003);
+                    }
+                }
+                catch {
+                    // Fallback to hardcoded estimate
+                    swapEstimatedOutput = Number(args.amount) * 0.99 * (1 - 0.003);
+                    apiQuoteInfo = '\n\nNote: Uniswap API unavailable, using estimated pricing.';
+                }
+                const minOutput = swapEstimatedOutput * (1 - slippage / 100);
                 const amountOutMinimum = parseEther(minOutput.toFixed(18));
-                // Generate the swap calldata
-                // exactInputSingle for Uniswap V3
-                const swapParams = {
-                    tokenIn: LIDO_CONTRACTS.stETH,
-                    tokenOut: '0x4200000000000000000000000000000000000006', // WETH on Base
-                    fee: POOL_FEE,
-                    recipient: recipient === 'SENDER' ? '0x0000000000000000000000000000000000000002' : recipient, // 0x02 = sender
-                    amountIn: amountIn,
-                    amountOutMinimum: amountOutMinimum,
-                    sqrtPriceLimitX96: 0, // No price limit
-                };
                 return {
                     content: [
                         {
@@ -703,9 +977,63 @@ Parameters:
 
 Steps to execute:
 1. Approve SwapRouter to spend your stETH: approve(${UNISWAP_CONTRACTS.swapRouter}, ${amountIn})
-2. Sign and send the exactInputSingle transaction
+2. Sign and send the exactInputSingle transaction${apiQuoteInfo}`,
+                        },
+                    ],
+                };
+            }
+            case 'uniswap_get_quote': {
+                if (!args)
+                    throw new McpError(ErrorCode.InvalidRequest, 'Missing arguments');
+                const tokenIn = args.tokenIn;
+                const tokenOut = args.tokenOut;
+                const humanAmount = args.amount;
+                // Convert human-readable amount to wei (18 decimals)
+                const amountWeiStr = parseEther(humanAmount).toString();
+                // Map "ETH" to the wrapped native token on Base
+                const resolvedTokenIn = tokenIn.toUpperCase() === 'ETH'
+                    ? '0x4200000000000000000000000000000000000006'
+                    : tokenIn;
+                const resolvedTokenOut = tokenOut.toUpperCase() === 'ETH'
+                    ? '0x4200000000000000000000000000000000000006'
+                    : tokenOut;
+                const uniQuote = await uniswapApiQuote({
+                    tokenIn: resolvedTokenIn,
+                    tokenOut: resolvedTokenOut,
+                    amount: amountWeiStr,
+                    chainId: 8453, // Base
+                    type: 'EXACT_INPUT',
+                });
+                const uniRawOutput = (uniQuote.quote ?? uniQuote.quoteDecimals ?? 'N/A').toString();
+                const uniPriceImpact = uniQuote.priceImpact != null ? `${(Number(uniQuote.priceImpact) * 100).toFixed(4)}%` : 'N/A';
+                const uniGasEstimate = uniQuote.gasUseEstimate || uniQuote.gasFee || 'N/A';
+                const uniRouteSummary = uniQuote.route
+                    ? uniQuote.route
+                        .map((path) => path.map((hop) => `${hop.tokenIn?.symbol || hop.tokenIn?.address || '?'} -> ${hop.tokenOut?.symbol || hop.tokenOut?.address || '?'} (fee: ${hop.fee || '?'})`).join(' -> ')).join(' | ')
+                    : `${resolvedTokenIn} -> ${resolvedTokenOut}`;
+                // Format output
+                let uniFormattedOutput;
+                try {
+                    uniFormattedOutput = formatEther(BigInt(uniRawOutput));
+                }
+                catch {
+                    uniFormattedOutput = uniRawOutput;
+                }
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: `Uniswap Quote (Base):
+- Token In: ${resolvedTokenIn}
+- Token Out: ${resolvedTokenOut}
+- Input Amount: ${humanAmount}
+- Expected Output: ${uniFormattedOutput}
+- Price Impact: ${uniPriceImpact}
+- Gas Estimate: ${uniGasEstimate}
+- Route: ${uniRouteSummary}
+- Chain: Base (8453)
 
-Note: Output is sent as ETH (native), not WETH.`,
+Quote sourced from Uniswap Developer Platform API.`,
                         },
                     ],
                 };

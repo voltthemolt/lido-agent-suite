@@ -5,11 +5,13 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "lido-mcp": "dist/index.js"
+    "lido-mcp": "dist/index.js",
+    "x402-server": "dist/x402-server.js"
   },
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "x402-server": "node dist/x402-server.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

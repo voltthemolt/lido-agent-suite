@@ -11,5 +11,6 @@
  * - Governance actions
  * - Agent Treasury integration
  * - Dry-run simulation support
+ * - Uniswap Developer Platform API integration
  */
 export {};
